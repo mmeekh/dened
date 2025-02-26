@@ -73,6 +73,76 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == 'main_menu':
             await show_main_menu(update, context)
             return ConversationHandler.END
+        elif query.data.startswith('toggle_ban_'):
+            # Extract user ID from callback data
+            user_id = int(query.data.split('_')[2])
+            logger.info(f"Admin attempting to toggle ban for user {user_id}")
+            
+            # Toggle user ban status in database
+            try:
+                # Direct database query to toggle ban status
+                db.cur.execute(
+                    "UPDATE users SET is_banned = CASE WHEN is_banned = 1 THEN 0 ELSE 1 END, "
+                    "failed_payments = CASE WHEN is_banned = 1 THEN 0 ELSE failed_payments END "
+                    "WHERE telegram_id = ?",
+                    (user_id,)
+                )
+                db.conn.commit()
+                
+                # Get updated ban status
+                db.cur.execute(
+                    "SELECT is_banned FROM users WHERE telegram_id = ?",
+                    (user_id,)
+                )
+                result = db.cur.fetchone()
+                
+                if result:
+                    is_banned = bool(result[0])
+                    status = "yasaklandı" if is_banned else "yasağı kaldırıldı"
+                    
+                    # Notify the affected user
+                    try:
+                        message = "⛔️ Hesabınız yasaklanmıştır." if is_banned else "✅ Hesabınızın yasağı kaldırılmıştır."
+                        keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=message,
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                        logger.info(f"Successfully notified user {user_id} about ban status change")
+                    except Exception as e:
+                        logger.error(f"Error notifying user {user_id}: {e}")
+                    
+                    # Show success message to admin
+                    await query.answer(f"Kullanıcı başarıyla {status}!")
+                    logger.info(f"User {user_id} ban status changed to {is_banned}")
+                    
+                    # Return to admin users menu using callback instead of direct function call
+                    await query.message.edit_text(
+                        f"✅ Kullanıcı #{user_id} {status}!",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
+                        ]])
+                    )
+                else:
+                    logger.warning(f"User {user_id} not found after ban toggle attempt")
+                    await query.answer("Kullanıcı bulunamadı!")
+                    await query.message.edit_text(
+                        "❌ Kullanıcı bulunamadı!",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
+                        ]])
+                    )
+            except Exception as e:
+                logger.error(f"Error toggling user ban: {e}")
+                await query.answer("İşlem başarısız oldu!")
+                await query.message.edit_text(
+                    "❌ Kullanıcı durumu güncellenirken bir hata oluştu.",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
+                    ]])
+                )
+            return
         elif query.data == 'exit':
             await query.message.edit_text("👋 Görüşmek üzere!")
             return ConversationHandler.END

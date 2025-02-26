@@ -506,14 +506,15 @@ class Database:
         return self.cur.fetchall()
 
     def get_all_users(self):
-        """Get all users from the database"""
-        try:
-            self.cur.execute("SELECT DISTINCT telegram_id FROM users WHERE is_banned = 0")
-            logger.info("Retrieved users from database")
-            return [row[0] for row in self.cur.fetchall()]
-        except Exception as e:
-            logger.error(f"Error getting users: {e}")
-            return []
+    """Get all non-banned user IDs from the database"""
+    try:
+        self.cur.execute("SELECT DISTINCT telegram_id FROM users WHERE is_banned = 0")
+        users = [int(row[0]) for row in self.cur.fetchall()]
+        logger.info(f"Retrieved {len(users)} users from database")
+        return users
+    except Exception as e:
+        logger.error(f"Error getting users: {e}")
+        return []
 
     def get_all_wallets(self):
         """Get all wallets from the database"""

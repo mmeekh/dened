@@ -33,7 +33,7 @@ async def show_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 # handlers/user/payments.py dosyasına bu fonksiyonu ekleyin
 async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle purchase request creation"""
+    """Handle purchase request creation with single message output"""
     logger.info("Starting purchase request process")
     user_id = update.effective_user.id
     
@@ -164,12 +164,6 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     db.clear_user_cart(user_id)
     logger.info(f"Cleared cart for user {user_id}")
     
-    # Mesajı sil
-    try:
-        await update.callback_query.message.delete()
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
-    
     # Admini bilgilendir
     admin_message = f"🛍️ Yeni Satın Alma Talebi #{request_id}\n\n"
     admin_message += f"👤 Kullanıcı ID: {user_id}\n"
@@ -198,31 +192,94 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     except Exception as e:
         logger.error(f"Error sending admin notification: {e}")
     
-    # Kullanıcıya onay mesajı gönder
-    user_message = f"""✅ Satın alma talebiniz oluşturuldu!
+    # QR kodunu oluştur
+    qr_image = None
+    try:
+        # QR kodu oluştur
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=5
+        )
+        qr.add_data(wallet)
+        qr.make(fit=True)
+        
+        # Resim oluştur
+        img = qr.make_image(fill_color="black", back_color="white")
+        bio = BytesIO()
+        img.save(bio, 'PNG')
+        bio.seek(0)
+        qr_image = bio
+        logger.info(f"QR code successfully generated for wallet {wallet}")
+    except Exception as e:
+        logger.error(f"Error generating QR code: {e}")
+        qr_image = None
+        
+    # Orijinal mesajı sil ve yerine yeni mesaj gönder
+    try:
+        await update.callback_query.message.delete()
+    except Exception as e:
+        logger.error(f"Error deleting message: {e}")
+    
+    # Kullanıcıya sadece bir mesaj içinde hem QR kod hem de bilgileri gönder
+    caption = f"""✅ Satın alma talebiniz oluşturuldu!
 
 🛍️ Sipariş #{request_id}
 💰 Toplam Tutar: {total} USDT
 
-🏦 Ödeme yapmanız gereken TRC20 cüzdan adresi:
+🏦 TRC20 Cüzdan Adresi:
 <code>{wallet}</code>
 
 ⚠️ Önemli Hatırlatmalar:
-- Sadece TRC20 ağını kullanın!
-- Tam tutarı tek seferde gönderin
-- Ödeme sonrası 5-10 dk bekleyin
-- Farklı tutar/ağ kullanmayın!"""
+• Sadece TRC20 ağını kullanın!
+• Tam tutarı tek seferde gönderin
+• QR kodu Binance uygulamasında okutabilirsiniz
+• Ödeme sonrası 5-10 dk bekleyin
+• Farklı tutar/ağ kullanmayın!"""
+
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],
+        [InlineKeyboardButton("🔍 Ödeme Durumu", callback_data='check_payment_status')],
+        [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
+    ])
     
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=user_message,
-        parse_mode='HTML',
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],
-            [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
-        ])
-    )
+    try:
+        if qr_image:
+            # QR kod oluşturulduysa, fotoğraflı mesaj gönder
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=qr_image,
+                caption=caption,
+                parse_mode='HTML',
+                reply_markup=reply_markup
+            )
+            logger.info(f"Sent purchase confirmation with QR code to user {user_id}")
+        else:
+            # QR kod oluşturulamadıysa, sadece metin gönder
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=caption,
+                parse_mode='HTML',
+                reply_markup=reply_markup
+            )
+            logger.info(f"Sent purchase confirmation without QR code to user {user_id}")
+    except Exception as e:
+        logger.error(f"Error sending confirmation message: {e}")
+        # Mesaj gönderme hatası durumunda son bir deneme daha yap
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"✅ Sipariş #{request_id} oluşturuldu! Toplam: {total} USDT",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+                ]])
+            )
+        except Exception as e2:
+            logger.error(f"Final error sending fallback message: {e2}")
+    
     logger.info(f"Purchase request process completed for user {user_id}")
+    return ConversationHandler.END
 async def show_wallet_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show wallet address for manual payment"""
     user_id = update.effective_user.id

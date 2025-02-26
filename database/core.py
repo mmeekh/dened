@@ -1,7 +1,8 @@
 import sqlite3
-import logging
 from typing import Optional, List, Tuple, Any, Dict
 import os
+import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,84 @@ class Database:
             except:
                 pass
             return None
+    def get_all_users_with_stats(self) -> List[Tuple]:
+        """Get all users with their statistics"""
+        try:
+            logger.debug("Fetching all users with stats")
+            self.cur.execute("""
+                SELECT 
+                    u.telegram_id,
+                    u.created_at,
+                    (SELECT COUNT(*) FROM purchase_requests WHERE user_id = u.telegram_id AND status = 'completed') as completed_orders,
+                    (SELECT COUNT(*) FROM purchase_requests WHERE user_id = u.telegram_id AND status = 'rejected') as rejected_orders,
+                    u.failed_payments,
+                    u.is_banned
+                FROM users u
+                ORDER BY u.created_at DESC
+            """)
+            results = self.cur.fetchall()
+            logger.debug(f"Found {len(results)} users")
+            return results
+        except Exception as e:
+            logger.exception("Error getting users with stats:")
+            return []
 
+    # Add this function to toggle a user's ban status
+    def toggle_user_ban(self, user_id):
+        """Toggle user ban status"""
+        try:
+            # First check if user exists
+            self.cur.execute(
+                "SELECT COUNT(*) FROM users WHERE telegram_id = ?",
+                (user_id,)
+            )
+            user_exists = self.cur.fetchone()[0] > 0
+            
+            if not user_exists:
+                logger.warning(f"Attempted to toggle ban for non-existent user {user_id}")
+                return False
+                
+            # Toggle the ban status
+            self.cur.execute(
+                "UPDATE users SET is_banned = CASE WHEN is_banned = 1 THEN 0 ELSE 1 END, "
+                "failed_payments = CASE WHEN is_banned = 1 THEN 0 ELSE failed_payments END "
+                "WHERE telegram_id = ?",
+                (user_id,)
+            )
+            
+            # Check if any rows were affected
+            if self.cur.rowcount == 0:
+                logger.warning(f"No rows affected when toggling ban for user {user_id}")
+                return False
+                
+            self.conn.commit()
+            logger.info(f"Successfully toggled ban status for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error toggling user ban: {e}")
+            return False
+
+    # Add this function to get a single user's stats
+    def get_user_stats(self, user_id: int) -> Optional[Tuple]:
+        """Get statistics for a specific user"""
+        try:
+            self.cur.execute("""
+                SELECT 
+                    u.telegram_id,
+                    u.created_at,
+                    COUNT(CASE WHEN pr.status = 'completed' THEN 1 END) as completed_orders,
+                    COUNT(CASE WHEN pr.status = 'rejected' THEN 1 END) as rejected_orders,
+                    u.failed_payments,
+                    u.is_banned
+                FROM users u
+                LEFT JOIN purchase_requests pr ON u.telegram_id = pr.user_id
+                WHERE u.telegram_id = ?
+                GROUP BY u.telegram_id
+            """, (user_id,))
+            return self.cur.fetchone()
+        except Exception as e:
+            logger.error(f"Error getting user stats: {e}")
+            return None
     def get_user_wallet(self, user_id: int) -> Optional[str]:
         """Get user's assigned wallet"""
         try:
