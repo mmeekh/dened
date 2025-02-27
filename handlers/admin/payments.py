@@ -221,55 +221,127 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
         )
 
 async def show_pending_purchases(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show pending purchase requests"""
-    requests = []
-    
-    # Get all pending requests
+    """Show pending purchase requests and order management options"""
     try:
-        for request in db.get_all_users():
-            active_request = db.get_user_active_request(request)
-            if active_request and active_request['status'] == 'pending':
-                requests.append(active_request)
-    except Exception as e:
-        logger.error(f"Error getting pending requests: {e}")
-    
-    try:
-        await update.callback_query.message.delete()
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
-    
-    context.user_data.pop('menu_message_id', None)
-    
-    if not requests:
+        # Get all pending requests using direct SQL query
+        db.cur.execute("""
+            SELECT 
+                pr.id,
+                pr.user_id,
+                pr.total_amount,
+                pr.created_at,
+                GROUP_CONCAT(
+                    p.name || ' (x' || pri.quantity || ' @ ' || pri.price || ' USDT)'
+                ) as items
+            FROM purchase_requests pr
+            JOIN purchase_request_items pri ON pr.id = pri.request_id
+            JOIN products p ON pri.product_id = p.id
+            WHERE pr.status = 'pending'
+            GROUP BY pr.id
+            ORDER BY pr.created_at DESC
+        """)
+        requests = db.cur.fetchall()
+        
+        # Delete current message and clear stored IDs
+        try:
+            await update.callback_query.message.delete()
+        except Exception as e:
+            logger.error(f"Error deleting message: {e}")
+        
+        # Clear any stored message IDs
+        context.user_data.pop('menu_message_id', None)
+        
+        if not requests:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="📋 Sipariş Yönetimi\n\n⚠️ Bekleyen satın alma talebi bulunmamaktadır.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📊 Tüm Siparişler", callback_data='view_all_orders')],
+                    [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
+                ])
+            )
+            return
+        
+        message = "📋 Sipariş Yönetimi - Bekleyen Talepler\n\n"
+        keyboard = []
+        
+        for request in requests:
+            request_id = request[0]
+            user_id = request[1]
+            total_amount = request[2]
+            created_at = request[3]
+            items = request[4]
+            
+            message += f"🛍️ Sipariş #{request_id}\n"
+            message += f"👤 Kullanıcı: {user_id}\n"
+            message += f"📦 Ürünler:\n{items}"
+            message += f"💰 Toplam: {total_amount} USDT\n"
+            message += f"📅 Tarih: {created_at}\n\n"
+        
+        for request in requests:
+            keyboard.append([
+                InlineKeyboardButton("✅ Onayla", callback_data=f'approve_purchase_{request[0]}'),
+                InlineKeyboardButton("❌ Reddet", callback_data=f'reject_purchase_{request[0]}')
+            ])
+        
+        keyboard.append([InlineKeyboardButton("📊 Tüm Siparişler", callback_data='view_all_orders')])
+        keyboard.append([InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Bekleyen satın alma talebi bulunmamaktadır.",
+            text=message,
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        logger.error(f"Error showing pending purchases: {e}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Sipariş bilgileri görüntülenirken bir hata oluştu.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
-        return
-    
-    message = "🛍️ Bekleyen Satın Alma Talepleri:\n\n"
-    keyboard = []
-    
-    for request in requests:
-        message += f"🛍️ Sipariş #{request['id']}\n"
-        message += f"👤 Kullanıcı: {request['user_id']}\n"
-        message += f"📦 Ürünler:\n{request['items']}"
-        message += f"💰 Toplam: {request['total_amount']} USDT\n"
-        message += f"📅 Tarih: {request['created_at']}\n\n"
+async def view_all_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """View all orders with filters for admin"""
+    try:
+        # Get order counts for each status
+        db.cur.execute("SELECT status, COUNT(*) FROM purchase_requests GROUP BY status")
+        status_counts = {status: count for status, count in db.cur.fetchall()}
         
-        keyboard.append([
-            InlineKeyboardButton("✅ Onayla", callback_data=f'approve_purchase_{request["id"]}'),
-            InlineKeyboardButton("❌ Reddet", callback_data=f'reject_purchase_{request["id"]}')
-        ])
-    
-    keyboard.append([InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')])
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=message,
-        reply_markup=reply_markup
-    )
+        pending_count = status_counts.get('pending', 0)
+        completed_count = status_counts.get('completed', 0)
+        rejected_count = status_counts.get('rejected', 0)
+        total_count = sum(status_counts.values())
+        
+        message = f"""📊 Tüm Siparişler
+
+Toplam: {total_count} sipariş
+
+Durum Dağılımı:
+• ⏳ Bekleyen: {pending_count}
+• ✅ Tamamlanan: {completed_count}
+• ❌ Reddedilen: {rejected_count}
+
+Görüntülemek istediğiniz sipariş türünü seçin:"""
+
+        keyboard = [
+            [InlineKeyboardButton(f"⏳ Bekleyen Siparişler ({pending_count})", callback_data='admin_pending_orders')],
+            [InlineKeyboardButton(f"✅ Tamamlanan Siparişler ({completed_count})", callback_data='admin_completed_orders')],
+            [InlineKeyboardButton(f"❌ Reddedilen Siparişler ({rejected_count})", callback_data='admin_rejected_orders')],
+            [InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')],
+            [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
+        ]
+        
+        await update.callback_query.message.edit_text(
+            message,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    except Exception as e:
+        logger.error(f"Error showing all orders: {e}")
+        await update.callback_query.message.edit_text(
+            "❌ Siparişler görüntülenirken bir hata oluştu.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+            ]])
+        )

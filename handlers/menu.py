@@ -59,10 +59,18 @@ Menüden istediğiniz seçeneği seçerek alışverişe başlayabilirsiniz."""
         return ConversationHandler.END
 def get_main_menu_keyboard(user_id):
     if user_id == ADMIN_ID:
+        # Get pending orders count
+        try:
+            db.cur.execute("SELECT COUNT(*) FROM purchase_requests WHERE status = 'pending'")
+            pending_count = db.cur.fetchone()[0]
+        except Exception as e:
+            logger.error(f"Error getting pending orders count: {e}")
+            pending_count = 0
+            
         keyboard = [
             [InlineKeyboardButton("🎯 Ürün Yönetimi", callback_data='admin_products')],
             [InlineKeyboardButton("👥 Kullanıcı Yönetimi", callback_data='admin_users')],
-            [InlineKeyboardButton("💰 Ödeme Onayı", callback_data='admin_payments')],
+            [InlineKeyboardButton(f"📋 Sipariş Yönetimi ({pending_count})", callback_data='admin_payments')],
             [InlineKeyboardButton("📢 Bildirim Gönder", callback_data='send_broadcast')],
             [
                 InlineKeyboardButton("👛 Cüzdan Havuzu", callback_data='admin_wallets'),

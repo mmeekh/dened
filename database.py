@@ -444,29 +444,31 @@ class Database:
         self.conn.commit()
 
     def get_user_orders_by_status(self, user_id, status):
-        """Get user's purchase requests by status"""
-        try:
-            self.cur.execute("""
-                SELECT 
-                    pr.id,
-                    pr.user_id,
-                    pr.total_amount,
-                    pr.status,
-                    pr.created_at,
-                    GROUP_CONCAT(
-                        p.name || ' (x' || pri.quantity || ' @ ' || pri.price || ' USDT)'
-                    ) as items
-                FROM purchase_requests pr
-                JOIN purchase_request_items pri ON pr.id = pri.request_id
-                JOIN products p ON pri.product_id = p.id
-                WHERE pr.user_id = ? AND pr.status = ?
-                GROUP BY pr.id
-                ORDER BY pr.created_at DESC
-            """, (user_id, status))
-            return self.cur.fetchall()
-        except Exception as e:
-            logger.error(f"Error getting orders by status: {e}")
-            return []
+    """Get user's purchase requests filtered by status"""
+    try:
+        query = """
+            SELECT 
+                pr.id,
+                pr.user_id,
+                pr.total_amount,
+                pr.status,
+                pr.created_at,
+                GROUP_CONCAT(
+                    p.name || ' (x' || pri.quantity || ' @ ' || pri.price || ' USDT)'
+                ) as items
+            FROM purchase_requests pr
+            JOIN purchase_request_items pri ON pr.id = pri.request_id
+            JOIN products p ON pri.product_id = p.id
+            WHERE pr.user_id = ? AND pr.status = ?
+            GROUP BY pr.id
+            ORDER BY pr.created_at DESC
+        """
+        
+        self.cur.execute(query, (user_id, status))
+        return self.cur.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting orders by status: {e}")
+        return []
 
     def add_wallet(self, address):
         self.cur.execute("INSERT INTO wallets (address) VALUES (?)", (address,))

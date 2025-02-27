@@ -221,6 +221,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'general_stats':
             await show_general_stats(update, context)
             return
+        elif query.data == 'view_all_orders':
+            from .admin.payments import view_all_orders
+            await view_all_orders(update, context)
+            return
         elif query.data == 'sales_stats':
             await show_sales_stats(update, context)
             return
