@@ -260,6 +260,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await admin_payments.view_all_orders(update, context)
             return
         
+        # Game handlers
+        elif query.data == 'games_menu':
+            await show_games_menu(update, context)
+            return
+        elif query.data == 'play_flappy_weed':
+            await play_flappy_weed(update, context)
+            return
+        elif query.data.startswith('start_flappy_'):
+            await start_flappy_game(update, context)
+            return
+        elif query.data == 'show_leaderboard':
+            await show_leaderboard(update, context)
+            return
+        elif query.data.startswith('save_score_'):
+            await handle_game_score(update, context)
+            return
         # User handler işlemleri
         elif query.data == 'products_menu':
             await show_products_menu(update, context)
@@ -344,7 +360,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     except Exception as e:
                         logger.error(f"Error notifying user {user_id}: {e}")
                     
-                    # Admin'e başarı mesajı göster
                     await query.answer(f"Kullanıcı başarıyla {status}!")
                     await show_generic_menu(
                         update=update,

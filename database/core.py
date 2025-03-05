@@ -309,7 +309,6 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
-            # Yeni kullanıcı-cüzdan ilişki tablosu
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS user_wallets (
                 id INTEGER PRIMARY KEY,
@@ -321,12 +320,58 @@ class Database:
                 UNIQUE(user_id, wallet_id)
             )
             ''')
-            self.conn.commit()
-            logger.info("Database tables created successfully")
-        except Exception as e:
-            logger.error(f"Error setting up database: {e}")
-            raise
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_sessions (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                session_id TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_used BOOLEAN DEFAULT 0,
+                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+            )
+            ''')
             
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_scores (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                session_id TEXT,
+                score INTEGER NOT NULL,
+                game_type TEXT DEFAULT 'flappy_weed',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+            )
+            ''')
+            
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_chances (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL UNIQUE,
+                daily_chances INTEGER DEFAULT 3,
+                last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+            )
+            ''')
+            
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS discount_coupons (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                coupon_code TEXT NOT NULL UNIQUE,
+                discount_percent INTEGER NOT NULL,
+                is_used BOOLEAN DEFAULT 0,
+                source TEXT,
+                expires_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+            )
+            ''')
+            
+            self.conn.commit()
+            logger.info("Game-related database tables created successfully")
+        except Exception as e:
+            logger.error(f"Error setting up game database tables: {e}")
+            raise
     def execute(self, query: str, params: tuple = ()) -> Optional[List[Tuple[Any, ...]]]:
         """Execute SQL query and return results"""
         try:
@@ -1141,7 +1186,213 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting total wallet count: {e}")
             return 0
+    #GAME FUNCTIONS
+    def create_game_session(self, user_id: int, session_id: str) -> bool:
+        """Create a new game session for a user"""
+        try:
+            self.cur.execute(
+                "INSERT INTO game_sessions (user_id, session_id) VALUES (?, ?)",
+                (user_id, session_id)
+            )
+            self.conn.commit()
+            logger.info(f"Game session {session_id} created for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error creating game session: {e}")
+            return False
+
+    def validate_game_session(self, user_id: int, session_id: str) -> bool:
+        """Validate if a game session exists and belongs to the user"""
+        try:
+            self.cur.execute(
+                "SELECT id FROM game_sessions WHERE user_id = ? AND session_id = ? AND is_used = 0",
+                (user_id, session_id)
+            )
+            result = self.cur.fetchone()
+            return result is not None
+        except Exception as e:
+            logger.error(f"Error validating game session: {e}")
+            return False
+
+    def use_game_chance(self, user_id: int) -> bool:
+        """Use one game chance for the user"""
+        try:
+            self.cur.execute(
+                "SELECT daily_chances, last_reset FROM game_chances WHERE user_id = ?",
+                (user_id,)
+            )
+            result = self.cur.fetchone()
             
+            current_time = datetime.now()
+            
+            if result:
+                chances, last_reset = result
+                last_reset = datetime.strptime(last_reset, '%Y-%m-%d %H:%M:%S')
+                
+                if (current_time - last_reset).days > 0:
+                    self.cur.execute(
+                        "UPDATE game_chances SET daily_chances = 2, last_reset = ? WHERE user_id = ?",
+                        (current_time, user_id)
+                    )
+                else:
+                    if chances > 0:
+                        self.cur.execute(
+                            "UPDATE game_chances SET daily_chances = daily_chances - 1 WHERE user_id = ?",
+                            (user_id,)
+                        )
+                    else:
+                        return False
+            else:
+                self.cur.execute(
+                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 2, ?)",
+                    (user_id, current_time)
+                )
+            
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error using game chance: {e}")
+            return False
+
+    def get_remaining_daily_games(self, user_id: int) -> int:
+        """Get remaining daily game chances for a user"""
+        try:
+            self.cur.execute(
+                "SELECT daily_chances, last_reset FROM game_chances WHERE user_id = ?",
+                (user_id,)
+            )
+            result = self.cur.fetchone()
+            
+            current_time = datetime.now()
+            
+            if result:
+                chances, last_reset = result
+                last_reset = datetime.strptime(last_reset, '%Y-%m-%d %H:%M:%S')
+                
+                if (current_time - last_reset).days > 0:
+                    self.cur.execute(
+                        "UPDATE game_chances SET daily_chances = 3, last_reset = ? WHERE user_id = ?",
+                        (current_time, user_id)
+                    )
+                    self.conn.commit()
+                    return 3
+                else:
+                    return chances
+            else:
+                self.cur.execute(
+                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 3, ?)",
+                    (user_id, current_time)
+                )
+                self.conn.commit()
+                return 3
+        except Exception as e:
+            logger.error(f"Error getting remaining daily games: {e}")
+            return 0
+
+    def get_next_game_reset_time(self, user_id: int) -> datetime:
+        """Get next time when game chances will reset"""
+        try:
+            self.cur.execute(
+                "SELECT last_reset FROM game_chances WHERE user_id = ?",
+                (user_id,)
+            )
+            result = self.cur.fetchone()
+            
+            if result:
+                last_reset = datetime.strptime(result[0], '%Y-%m-%d %H:%M:%S')
+                # Next reset is at midnight
+                next_reset = last_reset.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                return next_reset
+            else:
+                # If no entry, return next midnight
+                now = datetime.now()
+                next_reset = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                return next_reset
+        except Exception as e:
+            logger.error(f"Error getting next game reset time: {e}")
+            # Return 24 hours from now as default
+            return datetime.now() + timedelta(hours=24)
+
+    def save_game_score(self, user_id: int, session_id: str, score: int) -> bool:
+        """Save game score and mark session as used"""
+        try:
+            # Mark session as used
+            self.cur.execute(
+                "UPDATE game_sessions SET is_used = 1 WHERE user_id = ? AND session_id = ?",
+                (user_id, session_id)
+            )
+            
+            # Save score
+            self.cur.execute(
+                "INSERT INTO game_scores (user_id, session_id, score) VALUES (?, ?, ?)",
+                (user_id, session_id, score)
+            )
+            
+            self.conn.commit()
+            logger.info(f"Saved score {score} for user {user_id}, session {session_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving game score: {e}")
+            return False
+
+    def get_top_scores(self, limit: int = 10) -> list:
+        """Get top scores from all users"""
+        try:
+            self.cur.execute("""
+                SELECT 
+                    gs.user_id,
+                    u.username,
+                    MAX(gs.score) as max_score,
+                    gs.created_at
+                FROM game_scores gs
+                LEFT JOIN users u ON gs.user_id = u.telegram_id
+                GROUP BY gs.user_id
+                ORDER BY max_score DESC
+                LIMIT ?
+            """, (limit,))
+            return self.cur.fetchall()
+        except Exception as e:
+            logger.error(f"Error getting top scores: {e}")
+            return []
+
+    def get_user_best_score(self, user_id: int) -> int:
+        """Get user's best score"""
+        try:
+            self.cur.execute(
+                "SELECT MAX(score) FROM game_scores WHERE user_id = ?",
+                (user_id,)
+            )
+            result = self.cur.fetchone()
+            return result[0] if result and result[0] else 0
+        except Exception as e:
+            logger.error(f"Error getting user best score: {e}")
+            return 0
+
+    def create_discount_coupon(self, user_id: int, discount_percent: int, source: str) -> str:
+        """Create a discount coupon for a user"""
+        try:
+            import random
+            import string
+            
+            # Generate a random coupon code
+            coupon_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            # Set expiry date to 7 days from now
+            expires_at = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+            
+            self.cur.execute(
+                """INSERT INTO discount_coupons 
+                (user_id, coupon_code, discount_percent, source, expires_at) 
+                VALUES (?, ?, ?, ?, ?)""",
+                (user_id, coupon_code, discount_percent, source, expires_at)
+            )
+            
+            self.conn.commit()
+            logger.info(f"Created {discount_percent}% discount coupon {coupon_code} for user {user_id}")
+            return coupon_code
+        except Exception as e:
+            logger.error(f"Error creating discount coupon: {e}")
+            return "ERROR"
     def create_purchase_request(self, user_id: int, cart_items: list, wallet: str) -> Optional[int]:
         """Create a new purchase request with assigned wallet"""
         try:

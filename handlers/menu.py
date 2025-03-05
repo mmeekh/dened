@@ -12,7 +12,6 @@ db = Database('shop.db')
 def get_main_menu_keyboard(user_id):
     """Kullanıcının rolüne göre ana menü klavyesini oluşturur"""
     if user_id == ADMIN_ID:
-        # Get pending orders count
         try:
             db.cur.execute("SELECT COUNT(*) FROM purchase_requests WHERE status = 'pending'")
             pending_count = db.cur.fetchone()[0]
@@ -39,11 +38,13 @@ def get_main_menu_keyboard(user_id):
             cart_text = "🛍 Sepetim"
 
         keyboard = [
-            [InlineKeyboardButton("🎯 Ürünlerimiz", callback_data='products_menu')],
+            [InlineKeyboardButton("🎯 Ürünler", callback_data='products_menu')],
             [InlineKeyboardButton(cart_text, callback_data='show_cart')],
             [InlineKeyboardButton("🏷 Siparişlerim", callback_data='orders_menu')],
             [InlineKeyboardButton("💳 Ödeme İşlemleri", callback_data='payment_menu')],
-            [InlineKeyboardButton("ℹ️ Destek & Bilgi", callback_data='support_menu')]
+            [InlineKeyboardButton("ℹ️ Destek & Bilgi", callback_data='support_menu')],
+            [InlineKeyboardButton("🎮 Flappy Weed Oyna", callback_data='games_menu')],
+
         ]
     return InlineKeyboardMarkup(keyboard)
 
