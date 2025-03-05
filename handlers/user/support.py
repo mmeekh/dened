@@ -3,20 +3,33 @@ from telegram.ext import ContextTypes, ConversationHandler
 from database import Database
 from config import ADMIN_ID
 from states import SUPPORT_TICKET
+from utils.exchange import get_usdt_try_rate
 import logging
 
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def show_support_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show support menu"""
+    """Show simplified support menu with admin contact"""
     try:
-        await update.callback_query.message.delete()
+        # Delete previous message if exists
+        if update.callback_query:
+            try:
+                await update.callback_query.message.delete()
+            except Exception as e:
+                logger.error(f"Error deleting message: {e}")
     except Exception as e:
-        logger.error(f"Error deleting message: {e}")
+        logger.error(f"Error in message cleanup: {e}")
+
+    message = """ℹ️ Destek & Bilgi
+
+Herhangi bir sorunuz veya sorununuz olduğunda doğrudan Admin ile iletişime geçebilirsiniz.
+
+👨‍💻 Admin: @abstract53
+
+❓ Sıkça sorulan soruları da inceleyebilirsiniz."""
 
     keyboard = [
-        [InlineKeyboardButton("📞 Destek Talebi Oluştur", callback_data='create_ticket')],
         [InlineKeyboardButton("❓ Sıkça Sorulan Sorular", callback_data='faq')],
         [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
     ]
@@ -24,7 +37,7 @@ async def show_support_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="ℹ️ Destek & Bilgi",
+        text=message,
         reply_markup=reply_markup
     )
 
@@ -64,18 +77,31 @@ async def handle_support_ticket(update: Update, context: ContextTypes.DEFAULT_TY
     return ConversationHandler.END
 
 async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show FAQ page"""
+    """Show FAQ page with exchange rate information"""
     try:
-        await update.callback_query.message.delete()
+        # Delete previous message if exists
+        if update.callback_query:
+            try:
+                await update.callback_query.message.delete()
+            except Exception as e:
+                logger.error(f"Error deleting message: {e}")
     except Exception as e:
-        logger.error(f"Error deleting message: {e}")
+        logger.error(f"Error in message cleanup: {e}")
 
-    message = """❓ S.S.S/Kurallar
+    # Get current exchange rate
+    usdt_try_rate = get_usdt_try_rate()
+    exchange_rate_text = f" (≈ {20 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
+    max_exchange_text = f" (≈ {1000 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
+    
+    # Prepare exchange rate info for FAQ
+    current_rate = f"\n\n💱 Güncel Kur: 1 USDT = {usdt_try_rate:.2f} ₺" if usdt_try_rate else ""
+
+    message = f"""❓ S.S.S/Kurallar
 
 📜 Genel Kurallar:
 1. Adminlerle her zaman saygılı ve profesyonel iletişim kurulmalıdır
 2. Spam veya kötüye kullanım yasaktır
-3. Sahte ödeme bildirimi yapanlar anında yasaklanır
+3. Sahte ödeme bildirimi yapanlar anında yasaklanır{current_rate}
 
 1️⃣ Ödeme yaptım, ne kadar beklemeliyim?
 - Ödemeler ortalama 5-10 dakika içinde onaylanır
@@ -84,8 +110,8 @@ async def show_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
 - Sadece USDT (TRC20) kabul edilmektedir
 
 3️⃣ Minimum/Maksimum ödeme tutarı nedir?
-- Minimum işlem tutarı: 20 USDT
-- Maksimum işlem tutarı: 1000 USDT
+- Minimum işlem tutarı: 20 USDT{exchange_rate_text}
+- Maksimum işlem tutarı: 1000 USDT{max_exchange_text}
 
 4️⃣ Ürün teslimi nasıl yapılıyor?
 - Ödeme onaylandıktan sonra ürün konumu bot tarafından teslim edilir

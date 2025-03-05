@@ -1,9 +1,11 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
+from utils.exchange import get_usdt_try_rate
 from database import Database
 from config import ADMIN_ID
 import qrcode
+from telegram.error import BadRequest
 import random
 from io import BytesIO
 
@@ -11,33 +13,63 @@ logger = logging.getLogger(__name__)
 db = Database('shop.db')
 wallet = None
 
-async def show_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show payment menu"""
+async def safely_delete_message(bot, chat_id, message_id):
+    """Safely delete a message, handling the case where message doesn't exist"""
     try:
-        await update.callback_query.message.delete()
+        await bot.delete_message(chat_id=chat_id, message_id=message_id)
+        return True
+    except BadRequest as e:
+        if "Message to delete not found" in str(e):
+            return False
+        else:
+            logger.error(f"BadRequest error deleting message: {e}")
+            return False
     except Exception as e:
         logger.error(f"Error deleting message: {e}")
-
+        return False
+async def show_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show payment menu with proper message cleanup"""
+    try:
+        # Check if we're coming from a callback query (button press)
+        if update.callback_query:
+            # Try to delete the message that contains the button that was pressed
+            if update.callback_query.message:
+                await safely_delete_message(
+                    context.bot, 
+                    update.effective_chat.id, 
+                    update.callback_query.message.message_id
+                )
+                
+        # Try to delete last payment message if it exists
+        last_message = context.user_data.get('last_payment_message')
+        if last_message:
+            if hasattr(last_message, 'message_id'):
+                await safely_delete_message(
+                    context.bot,
+                    update.effective_chat.id,
+                    last_message.message_id
+                )
+            # Clear the stored message reference
+            context.user_data.pop('last_payment_message', None)
+    except Exception as e:
+        logger.error(f"Error in message cleanup: {e}")
     keyboard = [
         [InlineKeyboardButton("📜 Ödeme Nasıl Yapılır", callback_data='payment_howto')],
-        [InlineKeyboardButton("🔍 Ödeme Durumu", callback_data='check_payment_status')],
         [InlineKeyboardButton("📱 QR Kod ile Ödeme", callback_data='show_qr_code')],
         [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await context.bot.send_message(
+    context.user_data['last_payment_message'] = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="💳 Ödeme İşlemleri",
         reply_markup=reply_markup
     )
-# handlers/user/payments.py dosyasına bu fonksiyonu ekleyin
 async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle purchase request creation with single message output"""
     logger.info("Starting purchase request process")
     user_id = update.effective_user.id
     
-    # Kullanıcının yasaklı olup olmadığını kontrol et
     if db.is_user_banned(user_id):
         logger.warning(f"Banned user {user_id} attempted to create purchase request")
         await update.callback_query.message.edit_text(
@@ -48,7 +80,6 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
-    # Sepeti kontrol et
     cart_items = db.get_cart_items(user_id)
     
     if not cart_items:
@@ -61,11 +92,9 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
-    # Toplam tutarı hesapla
     total = sum(item[2] * item[3] for item in cart_items)
     logger.info(f"Cart total for user {user_id}: {total} USDT")
     
-    # Minimum ve maksimum limitleri kontrol et
     if total < 20:
         logger.warning(f"User {user_id} order below minimum (Total: {total} USDT)")
         await update.callback_query.message.edit_text(
@@ -86,25 +115,20 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
-    # Cüzdan atama işlemi - Geliştirilmiş Versiyon
     wallet = None
     
-    # 1. Önce kullanıcının mevcut aktif siparişine atanmış bir cüzdan var mı kontrol et
     active_request = db.get_user_active_request(user_id)
     if active_request and active_request.get('wallet'):
         wallet = active_request.get('wallet')
         logger.info(f"Reusing existing wallet {wallet} for user {user_id}")
     else:
-        # 2. Tüm kullanılabilir cüzdanları kontrol et
         logger.info("Checking for available wallets")
         available_wallets = db.get_available_wallet_count()
         logger.info(f"Found {available_wallets} available wallets")
         
-        # 3. Kullanılabilir cüzdan yoksa, bazı cüzdanları serbest bırak
         if available_wallets == 0:
             logger.warning("No available wallets, attempting to free up wallets")
             try:
-                # Aktif siparişlerde kullanılmayan cüzdanları serbest bırak
                 db.conn.execute("""
                     UPDATE wallets SET in_use = 0
                     WHERE address NOT IN (
@@ -116,10 +140,7 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
             except Exception as e:
                 logger.error(f"Error resetting wallets: {e}")
         
-        # 4. Şimdi bir cüzdan almayı dene
-        wallet = db.get_available_wallet()
-        
-        # 5. Hala cüzdan yoksa, yeni bir tane ekle (acil durum)
+        wallet = db.get_available_wallet()       
         if not wallet:
             logger.error("Still no available wallet found, creating emergency wallet")
             emergency_wallet = "T" + "".join([str(random.randint(1, 9)) for _ in range(33)])
@@ -240,7 +261,6 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
 
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],
-        [InlineKeyboardButton("🔍 Ödeme Durumu", callback_data='check_payment_status')],
         [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
     ])
     
@@ -316,14 +336,13 @@ async def show_wallet_address(update: Update, context: ContextTypes.DEFAULT_TYPE
 <code>{wallet}</code>
 
 ⚠️ Önemli Hatırlatmalar:
-- Sadece TRC20 ağını kullanın!
-- Tam tutarı tek seferde gönderin
-- Ödeme sonrası 5-10 dk bekleyin
-- Farklı tutar/ağ kullanmayın!"""
+• Sadece TRC20 ağını kullanın!
+• Tam tutarı tek seferde gönderin
+• Ödeme sonrası 5-10 dk bekleyin
+• Farklı tutar/ağ kullanmayın!"""
     
     keyboard = [
         [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],
-        [InlineKeyboardButton("🔍 Ödeme Durumu", callback_data='check_payment_status')],
         [InlineKeyboardButton("🔙 Ödeme Menüsü", callback_data='payment_menu')]
     ]
     
@@ -342,13 +361,31 @@ async def show_wallet_address(update: Update, context: ContextTypes.DEFAULT_TYPE
             ]])
         )
 async def show_payment_howto(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show payment instructions"""
+    """Show payment instructions with proper message cleanup"""
     try:
-        await update.callback_query.message.delete()
+        if update.callback_query and update.callback_query.message:
+            await safely_delete_message(
+                context.bot,
+                update.effective_chat.id,
+                update.callback_query.message.message_id
+            )
+                
+        last_message = context.user_data.get('last_payment_message')
+        if last_message and hasattr(last_message, 'message_id'):
+            await safely_delete_message(
+                context.bot,
+                update.effective_chat.id,
+                last_message.message_id
+            )
+            context.user_data.pop('last_payment_message', None)
     except Exception as e:
-        logger.error(f"Error deleting message: {e}")
+        logger.error(f"Error in message cleanup: {e}")
+    
+    usdt_try_rate = get_usdt_try_rate()
+    exchange_rate_text = f" (≈ {20 * usdt_try_rate:.2f} ₺)" if usdt_try_rate else ""
+    max_exchange_text = f" (≈ {1000 * usdt_try_rate:.2f} ₺)" if usdt_try_rate else ""
 
-    message = """📜 Ödeme Nasıl Yapılır?
+    message = f"""📜 Ödeme Nasıl Yapılır?
 
 💡 Ödeme Yöntemleri:
 1. QR Kod ile Hızlı Ödeme
@@ -371,29 +408,26 @@ Binance'den başka bir cüzdana TRC20 ağıyla USDT göndermek için:
 7️⃣ Transfer tamamlanınca 🎉 işlem geçmişinden takibini yapabilirsin 👀.
 
 ⚠️ Önemli Notlar:
-• Minimum işlem tutarı: 20 USDT
-• Maksimum işlem tutarı: 1000 USDT
+• Minimum işlem tutarı: 20 USDT{exchange_rate_text}
+• Maksimum işlem tutarı: 1000 USDT{max_exchange_text}
 • Sadece TRC20 ağı kabul edilmektedir
 • Yanlış ağ seçimi durumunda iade yapılmaz
 • Ödeme onayı genellikle 5-10 dakika içinde gerçekleşir
-• "Ödeme Durumu" butonundan işleminizi takip edebilirsiniz
 
 ⚠️ Dikkat: Alıcının cüzdan adresini ve ağı (TRC20) doğru seçtiğinden emin ol! 🚀"""
 
     keyboard = [[InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await context.bot.send_message(
+    context.user_data['last_payment_message'] = await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text=message,
         reply_markup=reply_markup
     )
-
 async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show QR code for payment"""
+    """Show QR code for payment with wallet address for copy"""
     user_id = update.effective_user.id
     
-    # Get user's active purchase request
     active_request = db.get_user_active_request(user_id)
     
     if not active_request:
@@ -405,7 +439,6 @@ async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Get assigned wallet
     wallet = db.get_request_wallet(active_request['id'])
     if not wallet:
         await update.callback_query.message.edit_text(
@@ -417,48 +450,71 @@ async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     try:
-        # Generate QR code
+        if update.callback_query and update.callback_query.message:
+            await safely_delete_message(
+                context.bot,
+                update.effective_chat.id,
+                update.callback_query.message.message_id
+            )
+        
+        last_message = context.user_data.get('last_payment_message')
+        if last_message and hasattr(last_message, 'message_id'):
+            await safely_delete_message(
+                context.bot,
+                update.effective_chat.id,
+                last_message.message_id
+            )
+            context.user_data.pop('last_payment_message', None)
+        
+        usdt_try_rate = get_usdt_try_rate()
+        exchange_rate_text = f" (≈ {20 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
+        max_exchange_text = f" (≈ {1000 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
+
+        
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(wallet)
         qr.make(fit=True)
         
-        # Create image
         img = qr.make_image(fill_color="black", back_color="white")
         bio = BytesIO()
         img.save(bio, 'PNG')
         bio.seek(0)
         
-        # Send QR code with payment info
+        total_try = f" (≈ {active_request['total_amount'] * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
         message = f"""📱 QR Kod ile Ödeme
 
-💰 Ödenecek Tutar: {active_request['total_amount']} USDT
+💰 Ödenecek Tutar: {active_request['total_amount']} USDT{total_try}
 📝 Sipariş No: #{active_request['id']}
+
+🔸 TRC20 Cüzdan Adresi:
+<code>{wallet}</code>
 
 ⚠️ Önemli Hatırlatmalar:
 • QR kodu Binance uygulamasında okutun
 • Sadece TRC20 ağını kullanın!
 • Tam tutarı tek seferde gönderin
+• Minimum işlem tutarı: 20 USDT{exchange_rate_text}
 • Ödeme sonrası 5-10 dk bekleyin"""
         
-        await context.bot.send_photo(
+        context.user_data['last_payment_message'] = await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=bio,
             caption=message,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔍 Ödeme Durumu", callback_data='check_payment_status')],
                 [InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')]
-            ])
+            ]),
+            parse_mode='HTML'
         )
         
     except Exception as e:
         logger.error(f"Error generating QR code: {e}")
-        await update.callback_query.message.edit_text(
-            "❌ QR kod oluşturulurken bir hata oluştu.",
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ QR kod oluşturulurken bir hata oluştu.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')
             ]])
         )
-
 async def check_payment_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Check payment status for active request"""
     user_id = update.effective_user.id

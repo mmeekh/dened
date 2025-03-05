@@ -9,16 +9,16 @@ logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user's cart"""
+    """Show user's cart with options to remove items and proceed to checkout"""
     user_id = update.effective_user.id
     cart_items = db.get_cart_items(user_id)
 
     try:
-        await update.callback_query.message.delete()
+        if update.callback_query:
+            await update.callback_query.message.delete()
+        context.user_data.pop('menu_message_id', None)
     except Exception as e:
         logger.error(f"Error deleting message: {e}")
-
-    context.user_data.pop('menu_message_id', None)
     
     if not cart_items:
         keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
@@ -29,18 +29,16 @@ async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         return
-
-    total = sum(item[2] * item[3] for item in cart_items)
-    total_items = sum(item[3] for item in cart_items)
+    total = sum(item[2] * item[3] for item in cart_items)  # price * quantity
+    total_items = sum(item[3] for item in cart_items)  # sum of quantities
     
     message = f"""🛒 Sepetim ({total_items} ürün)
 
 📦 Ürünler:
 """
     keyboard = []
-    
     for item in cart_items:
-        subtotal = item[2] * item[3]
+        subtotal = item[2] * item[3]  # price * quantity
         message += f"• {item[1]}\n"
         message += f"  {item[2]} USDT × {item[3]} = {subtotal} USDT\n"
         keyboard.append([

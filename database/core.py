@@ -119,11 +119,9 @@ class Database:
             logger.exception("Error getting users with stats:")
             return []
 
-    # Add this function to toggle a user's ban status
     def toggle_user_ban(self, user_id):
         """Toggle user ban status"""
         try:
-            # First check if user exists
             self.cur.execute(
                 "SELECT COUNT(*) FROM users WHERE telegram_id = ?",
                 (user_id,)
@@ -153,8 +151,15 @@ class Database:
         except Exception as e:
             logger.error(f"Error toggling user ban: {e}")
             return False
-
-    # Add this function to get a single user's stats
+    def remove_from_cart(self, cart_id):
+        """Remove an item from the user's cart"""
+        try:
+            self.cur.execute("DELETE FROM cart WHERE id = ?", (cart_id,))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error removing item from cart: {e}")
+            return False
     def get_user_stats(self, user_id: int) -> Optional[Tuple]:
         """Get statistics for a specific user"""
         try:
@@ -411,7 +416,6 @@ class Database:
             
             user_id = result[0]
             
-            # Önce kullanıcının varlığını kontrol et ve gerekirse oluştur
             self.cur.execute(
                 "SELECT telegram_id FROM users WHERE telegram_id = ?",
                 (user_id,)
@@ -426,7 +430,6 @@ class Database:
                 )
                 self.conn.commit()
             
-            # If status is rejected, increment failed_payments
             if status == 'rejected':
                 self.cur.execute(
                     """UPDATE users 
@@ -436,7 +439,6 @@ class Database:
                 )
                 self.conn.commit()
                     
-                # Check if user should be banned
                 self.cur.execute(
                     """SELECT failed_payments 
                     FROM users 
@@ -660,7 +662,6 @@ class Database:
                 
             wallet_id, address = result
             
-            # Mark wallet as in use
             self.cur.execute(
                 "UPDATE wallets SET in_use = 1 WHERE id = ? AND in_use = 0",
                 (wallet_id,)
@@ -707,7 +708,44 @@ class Database:
     def update_request_status(self, request_id: int, status: str) -> bool:
         """Alias for update_purchase_request_status for backward compatibility"""
         return self.update_purchase_request_status(request_id, status)
-
+    
+    def store_user_last_notification(self, user_id, message_id):
+        """Store the ID of the last notification message sent to a user"""
+        try:
+            # Check if the table exists
+            self.cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_notifications (
+                    user_id INTEGER PRIMARY KEY,
+                    last_message_id INTEGER,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Insert or update the message ID
+            self.cur.execute("""
+                INSERT OR REPLACE INTO user_notifications (user_id, last_message_id, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+            """, (user_id, message_id))
+            
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error storing notification message ID: {e}")
+            return False
+    def get_user_last_notification(self, user_id):
+        """Get the ID of the last notification message sent to a user"""
+        try:
+            self.cur.execute("""
+                SELECT last_message_id
+                FROM user_notifications
+                WHERE user_id = ?
+            """, (user_id,))
+            
+            result = self.cur.fetchone()
+            return result[0] if result else None
+        except Exception as e:
+            logger.error(f"Error getting notification message ID: {e}")
+            return None        
     def get_all_wallets(self) -> List[Tuple]:
         """Get all wallets with their status"""
         try:

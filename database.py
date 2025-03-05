@@ -3,19 +3,15 @@ from datetime import datetime
 import os
 import logging
 
-# Set up logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
-# Create a file handler
 handler = logging.FileHandler('database.log')
 handler.setLevel(logging.DEBUG)
 
-# Create a formatter
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 
-# Add the handler to the logger
 logger.addHandler(handler)
 
 class Database:
@@ -26,7 +22,6 @@ class Database:
         self.setup_database()
 
     def setup_database(self):
-        # Drop and recreate users table with created_at column
         self.cur.execute('''
         DROP TABLE IF EXISTS users;
         DROP TABLE IF EXISTS purchase_requests;
@@ -34,7 +29,6 @@ class Database:
         DROP TABLE IF EXISTS wallets;
         ''')
 
-        # Users Table with registration date
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY,
@@ -45,7 +39,6 @@ class Database:
         )
         ''')
 
-        # Products Table
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY,
@@ -58,7 +51,6 @@ class Database:
         )
         ''')
 
-        # Orders Table
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY,
@@ -71,7 +63,6 @@ class Database:
         )
         ''')
 
-        # Wallets Pool Table
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS wallets (
             id INTEGER PRIMARY KEY,
@@ -79,8 +70,6 @@ class Database:
             in_use BOOLEAN DEFAULT 0
         )
         ''')
-
-        # Cart Table
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS cart (
             id INTEGER PRIMARY KEY,
@@ -92,7 +81,6 @@ class Database:
         )
         ''')
 
-        # Purchase Requests Table
         self.cur.execute('''
         CREATE TABLE IF NOT EXISTS purchase_requests (
             id INTEGER PRIMARY KEY,
@@ -395,9 +383,14 @@ class Database:
         return result if result else 0
 
     def remove_from_cart(self, cart_id):
-        self.cur.execute("DELETE FROM cart WHERE id = ?", (cart_id,))
-        self.conn.commit()
-
+        """Remove an item from the user's cart"""
+        try:
+            self.cur.execute("DELETE FROM cart WHERE id = ?", (cart_id,))
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error removing item from cart: {e}")
+            return False
     def update_product_stock(self, product_id, quantity):
         try:
             self.cur.execute(

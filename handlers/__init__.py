@@ -1,7 +1,8 @@
 from .admin import (
+    # Admin handlers
     manage_products,
     manage_users,
-    manage_wallets, 
+    manage_wallets,
     start_broadcast,
     send_broadcast,
     handle_purchase_approval
@@ -10,6 +11,7 @@ from .admin import (
 from .admin.wallets import handle_wallet_input
 
 from .user import (
+    # User handlers
     show_products_menu,
     view_products,
     show_cart,
@@ -22,7 +24,6 @@ from .user import (
     show_payment_howto,
     handle_purchase_request,
     show_support_menu,
-    handle_support_ticket,
     show_faq
 )
 
@@ -52,7 +53,6 @@ __all__ = [
     'show_payment_howto',
     'handle_purchase_request',
     'show_support_menu',
-    'handle_support_ticket',
     'show_faq',
     
     # Common handlers

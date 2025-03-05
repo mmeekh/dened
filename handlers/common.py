@@ -8,7 +8,6 @@ from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 
-# Admin handler modülleri
 from .admin import (
     manage_products,
     manage_users,
@@ -36,7 +35,6 @@ from .admin.products import (
     handle_delete_product
 )
 
-# Kullanıcı handler modülleri
 from .user import (
     show_products_menu,
     view_products,
@@ -47,7 +45,6 @@ from .user import (
     show_order_details,
     show_payment_menu,
     show_payment_howto,
-    check_payment_status,
     show_qr_code,
     handle_purchase_request,
     show_support_menu,
@@ -298,14 +295,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'payment_howto':
             await show_payment_howto(update, context)
             return
-        elif query.data == 'check_payment_status':
-            await check_payment_status(update, context)
-            return
         elif query.data == 'show_qr_code':
             await show_qr_code(update, context)
             return
         elif query.data == 'show_wallet':
-            # Alternatif olarak ödeme menüsüne yönlendir
             import importlib
             user_payments = importlib.import_module('.user.payments', package='handlers')
             await user_payments.show_wallet_address(update, context)
@@ -330,29 +323,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'support_menu':  
             await show_support_menu(update, context)
             return
-        elif query.data == 'create_ticket':
-            await show_generic_menu(
-                update=update,
-                context=context,
-                text="Lütfen destek talebinizi yazın:",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 İptal", callback_data='support_menu')]
-                ])
-            )
-            return SUPPORT_TICKET
         elif query.data == 'faq':
             await show_faq(update, context)
             return
-        # Ban/unban işlemi    
         elif query.data.startswith('toggle_ban_'):
             user_id = int(query.data.split('_')[2])
             if db.toggle_user_ban(user_id):
                 user_stats = db.get_user_stats(user_id)
                 if user_stats:
                     is_banned = user_stats[5]
-                    status = "yasaklandı" if is_banned else "yasağı kaldırıldı"
-                    
-                    # Etkilenen kullanıcıya bildirim gönder
+                    status = "yasaklandı" if is_banned else "yasağı kaldırıldı"                    
                     try:
                         message = "⛔️ Hesabınız yasaklanmıştır." if is_banned else "✅ Hesabınızın yasağı kaldırılmıştır."
                         keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
@@ -382,9 +362,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await manage_users(update, context)
             return
         elif query.data.startswith('remove_cart_'):
-            cart_id = int(query.data.split('_')[2])
-            db.remove_from_cart(cart_id)
-            await show_cart(update, context)
+            try:
+                cart_id = int(query.data.split('_')[2])
+                logger.info(f"Removing cart item with ID: {cart_id}")
+                success = db.remove_from_cart(cart_id)
+                if success:
+                    logger.info(f"Successfully removed cart item {cart_id}")
+                else:
+                    logger.warning(f"Failed to remove cart item {cart_id}")
+                # Refresh the cart view
+                await show_cart(update, context)
+            except Exception as e:
+                logger.error(f"Error processing cart removal: {e}")
+                await update.callback_query.answer("Ürün sepetten kaldırılırken bir hata oluştu")
             return
 
     except Exception as e:

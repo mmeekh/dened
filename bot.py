@@ -43,14 +43,11 @@ from handlers import (
     show_payment_howto,
     handle_purchase_request,
     show_support_menu,
-    handle_support_ticket,
     show_faq,
     
-    # Common handlers
     button_handler,
     cancel,
     
-    # Menu handlers
     start,
     show_main_menu,
     get_main_menu_keyboard
@@ -58,7 +55,6 @@ from handlers import (
 from database import Database
 from states import *
 
-# Setup logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -98,55 +94,6 @@ async def start_monitoring():
         await asyncio.sleep(6 * 60 * 60)
 
 async def start_locations_monitoring():
-    """Location pool monitoring task"""
-    while True:
-        try:
-            # Get all products
-            products = db.get_products()
-            
-            for product in products:
-                product_id = product[0]
-                product_name = product[1]
-                
-                # Check available locations for this product
-                available_locations = db.get_available_location_count(product_id)
-                
-                if available_locations < 3:  # If less than 3 locations available
-                    await application.bot.send_message(
-                        chat_id=ADMIN_ID,
-                        text=f"⚠️ Konum Havuzu Uyarısı!\n\n"
-                             f"Ürün: {product_name}\n"
-                             f"Müsait konum sayısı: {available_locations}\n\n"
-                             f"Bu ürün için yeni konumlar eklemeniz önerilir."
-                    )
-        except Exception as e:
-            logger.error(f"Error in location pool monitoring: {e}")
-            
-        # Check every 12 hours
-        await asyncio.sleep(12 * 60 * 60)
-async def check_wallet_pool():
-    """Wallet pool monitoring task"""
-    while True:
-        try:
-            available_wallets = db.get_available_wallet_count()
-            total_wallets = db.get_total_wallet_count()
-            
-            # If less than 20% of wallets are available, notify admin
-            if total_wallets > 0 and available_wallets / total_wallets < 0.2:
-                await application.bot.send_message(
-                    chat_id=ADMIN_ID,
-                    text=f"⚠️ Cüzdan Havuzu Uyarısı!\n\n"
-                         f"Müsait cüzdan sayısı: {available_wallets}\n"
-                         f"Toplam cüzdan sayısı: {total_wallets}\n\n"
-                         f"Cüzdan havuzuna yeni cüzdanlar eklemeniz önerilir."
-                )
-        except Exception as e:
-            logger.error(f"Error in wallet pool monitoring: {e}")
-            
-        # Check every 6 hours
-        await asyncio.sleep(6 * 60 * 60)
-
-async def check_locations_pool():
     """Location pool monitoring task"""
     while True:
         try:
@@ -246,9 +193,7 @@ if __name__ == '__main__':
             .pool_timeout(30.0)
             .build()
         )
-        logger.info("Bot application initialized")
-    
-        # Add conversation handler for product addition and editing
+        logger.info("Bot application initialized")    
         conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('start', start),
@@ -264,7 +209,6 @@ if __name__ == '__main__':
                 EDIT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit_name)],
                 EDIT_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit_description)],
                 EDIT_PRICE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_edit_price)],
-                SUPPORT_TICKET: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_support_ticket)],
                 CART_QUANTITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_cart_quantity)],
                 BROADCAST_MESSAGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, send_broadcast)],
                 WALLET_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet_input)],
@@ -274,19 +218,16 @@ if __name__ == '__main__':
                 LOCATION_PHOTO: [MessageHandler(filters.PHOTO, handle_location_photo)],
             },
             fallbacks=[
-    CommandHandler('cancel', cancel),
-    CallbackQueryHandler(button_handler)  # Bu satırı ekleyin
-],
+                CommandHandler('cancel', cancel),
+                CallbackQueryHandler(button_handler)
+            ],
             per_message=False,
             per_chat=True,
             per_user=True
         )
-
-        # Add handlers
         application.add_handler(conv_handler)
         logger.info("Handlers added to application")
-
-        # Start the bot
+        
         logger.info("Starting bot polling...")
         application.run_polling(allowed_updates=Update.ALL_TYPES)
 

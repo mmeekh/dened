@@ -5,10 +5,9 @@ from .payments import (
     show_payment_menu,
     show_payment_howto,
     show_qr_code,
-    check_payment_status,
-    handle_purchase_request  # Fonksiyon payments.py'de olacak
+    handle_purchase_request
 )
-from .support import show_support_menu, handle_support_ticket, show_faq
+from .support import show_support_menu, show_faq
 
 __all__ = [
     'show_products_menu',
@@ -22,9 +21,7 @@ __all__ = [
     'show_payment_menu',
     'show_payment_howto',
     'show_qr_code',
-    'check_payment_status',
     'handle_purchase_request',
     'show_support_menu',
-    'handle_support_ticket',
     'show_faq'
 ]
