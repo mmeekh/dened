@@ -273,7 +273,10 @@ if __name__ == '__main__':
                 STOCK_CHANGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_stock_input)],
                 LOCATION_PHOTO: [MessageHandler(filters.PHOTO, handle_location_photo)],
             },
-            fallbacks=[CommandHandler('cancel', cancel)],
+            fallbacks=[
+    CommandHandler('cancel', cancel),
+    CallbackQueryHandler(button_handler)  # Bu satırı ekleyin
+],
             per_message=False,
             per_chat=True,
             per_user=True

@@ -4,60 +4,13 @@ from telegram.ext import ContextTypes, ConversationHandler
 from config import ADMIN_ID, PRODUCTS_DIR
 from states import PRODUCT_NAME, PRODUCT_DESCRIPTION, PRODUCT_PRICE, PRODUCT_IMAGE, EDIT_NAME, EDIT_DESCRIPTION, EDIT_PRICE, BROADCAST_MESSAGE, SUPPORT_TICKET, CART_QUANTITY
 from database import Database
+from utils.menu_utils import show_generic_menu
 
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start the conversation and show main menu."""
-    try:
-        # Get user's first name if available
-        user_first_name = update.effective_user.first_name if update.effective_user.first_name else "Değerli Müşterimiz"
-        user_id = update.effective_user.id
-        
-        # Check if user is banned
-        if db.is_user_banned(user_id):
-            await update.message.reply_text(
-                "⛔️ Hesabınız yasaklanmıştır. Daha fazla işlem yapamazsınız.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("❌ Çıkış", callback_data='exit')
-                ]])
-            )
-            return ConversationHandler.END
-        
-        logger.info("Starting new conversation")
-        # Add user to database
-        logger.info(f"Adding user {user_id} to database")
-        if db.add_user(user_id):
-            logger.info(f"Successfully added user {user_id}")
-        else:
-            logger.warning(f"Failed to add user {user_id} or user already exists")
-        
-        # Create welcome message
-        welcome_message = f"""🌟 Tobacco'ya Hoş Geldiniz {user_first_name}! 🌟
-
-🎯 Premium kalite ürünlerimiz ve güvenilir hizmetimizle sizlere en iyi deneyimi sunmaktan gurur duyuyoruz.
-
-✨ Neden Biz?
-• 💯 %100 Orijinal Ürünler
-• 🔒 Güvenli Alışveriş
-• 🚀 Hızlı Teslimat
-• 💎 Premium Hizmet
-
-Menüden istediğiniz seçeneği seçerek alışverişe başlayabilirsiniz."""
-        
-        await show_main_menu(update, context, welcome_message)
-        return ConversationHandler.END
-    except Exception as e:
-        logger.error(f"Error in start command: {e}")
-        # Fallback: send simple message
-        await update.message.reply_text(
-            "Hoş geldiniz! Lütfen bir seçenek seçin:",
-            reply_markup=get_main_menu_keyboard(user_id)
-        )
-        logger.error(f"Fallback message sent for user {user_id}")
-        return ConversationHandler.END
 def get_main_menu_keyboard(user_id):
+    """Kullanıcının rolüne göre ana menü klavyesini oluşturur"""
     if user_id == ADMIN_ID:
         # Get pending orders count
         try:
@@ -95,43 +48,71 @@ def get_main_menu_keyboard(user_id):
     return InlineKeyboardMarkup(keyboard)
 
 async def show_main_menu(update, context, message=None):
+    """Ana menüyü gösterir - menünün sabit kalması için aynı mesajı düzenler"""
     user_id = update.effective_user.id
     text = message if message else 'Hoş geldiniz! Lütfen bir seçenek seçin:'
     reply_markup = get_main_menu_keyboard(user_id)
     
-    try:
-        # Always try to delete the previous menu message first
-        menu_message_id = context.user_data.get('menu_message_id')
-        if menu_message_id:
-            try:
-                await context.bot.delete_message(
-                    chat_id=update.effective_chat.id,
-                    message_id=menu_message_id
-                )
-            except Exception as e:
-                logger.error(f"Error deleting previous menu message: {e}")
+    # Genel menü şablonunu kullan
+    await show_generic_menu(
+        update=update,
+        context=context,
+        text=text,
+        reply_markup=reply_markup
+    )
 
-        if update.message:
-            # Send new message
-            sent_message = await update.message.reply_text(text, reply_markup=reply_markup)
-            context.user_data['menu_message_id'] = sent_message.message_id
-            
-            # Delete user's message
-            try:
-                await update.message.delete()
-            except Exception as e:
-                logger.error(f"Error deleting user message: {e}")
-                
-        elif update.callback_query:
-            try:
-                await update.callback_query.message.edit_text(text, reply_markup=reply_markup)
-            except Exception as e:
-                logger.error(f"Error editing message, sending new one: {e}")
-                sent_message = await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=text,
-                    reply_markup=reply_markup
-                )
-                context.user_data['menu_message_id'] = sent_message.message_id
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Karşılama mesajını göster ve ana menüyü oluştur"""
+    try:
+        # Kullanıcı bilgilerini al
+        user_first_name = update.effective_user.first_name if update.effective_user.first_name else "Değerli Müşterimiz"
+        user_id = update.effective_user.id
+        
+        # Kullanıcı yasaklı mı kontrol et
+        if db.is_user_banned(user_id):
+            # Genel menü şablonunu kullan
+            await show_generic_menu(
+                update=update,
+                context=context, 
+                text="⛔️ Hesabınız yasaklanmıştır. Daha fazla işlem yapamazsınız.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("❌ Çıkış", callback_data='exit')
+                ]])
+            )
+            return ConversationHandler.END
+        
+        logger.info("Starting new conversation")
+        # Kullanıcıyı veritabanına ekle
+        logger.info(f"Adding user {user_id} to database")
+        if db.add_user(user_id):
+            logger.info(f"Successfully added user {user_id}")
+        else:
+            logger.warning(f"Failed to add user {user_id} or user already exists")
+        
+        # Karşılama mesajını oluştur
+        welcome_message = f"""🌟 Tobacco'ya Hoş Geldiniz {user_first_name}! 🌟
+
+🎯 Premium kalite ürünlerimiz ve güvenilir hizmetimizle sizlere en iyi deneyimi sunmaktan gurur duyuyoruz.
+
+✨ Neden Biz?
+• 💯 %100 Orijinal Ürünler
+• 🔒 Güvenli Alışveriş
+• 🚀 Hızlı Teslimat
+• 💎 Premium Hizmet
+
+Menüden istediğiniz seçeneği seçerek alışverişe başlayabilirsiniz."""
+        
+        # Ana menüyü göster
+        await show_main_menu(update, context, welcome_message)
+        return ConversationHandler.END
     except Exception as e:
-        logger.error(f"Error in show_main_menu: {e}")
+        logger.error(f"Error in start command: {e}")
+        # Hata durumunda basit bir mesaj göster
+        await show_generic_menu(
+            update=update,
+            context=context,
+            text="Hoş geldiniz! Lütfen bir seçenek seçin:",
+            reply_markup=get_main_menu_keyboard(user_id)
+        )
+        logger.error(f"Fallback message sent for user {user_id}")
+        return ConversationHandler.END

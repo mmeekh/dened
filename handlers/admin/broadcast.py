@@ -12,19 +12,26 @@ async def start_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start broadcast message process"""
     logger.info(f"Starting broadcast process for user {update.effective_user.id}")
     try:
-        await update.callback_query.message.edit_text(
-            "📢 Tüm kullanıcılara gönderilecek mesajı yazın:",
+        # Önceki içeriği koruyoruz, ama show_generic_menu'yu kullanıyoruz
+        from utils.menu_utils import show_generic_menu
+        
+        await show_generic_menu(
+            update=update,
+            context=context,
+            text="📢 Tüm kullanıcılara gönderilecek mesajı yazın:",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 İptal", callback_data='main_menu')
             ]])
         )
+        
         logger.info("Broadcast message prompt displayed")
         return BROADCAST_MESSAGE
     except Exception as e:
         logger.error(f"Error starting broadcast: {e}")
         try:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
+            await show_generic_menu(
+                update=update,
+                context=context,
                 text="❌ Bildirim başlatılırken bir hata oluştu.",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')

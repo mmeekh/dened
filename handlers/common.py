@@ -1,16 +1,16 @@
 import logging
-import importlib  # Bu satırı ekleyin
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from config import ADMIN_ID
 from states import *
 from database import Database
-from .menu import show_main_menu, get_main_menu_keyboard
+from .menu import show_main_menu
+from utils.menu_utils import show_generic_menu
+from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
+
+# Admin handler modülleri
 from .admin import (
     manage_products,
-    add_product,
-    show_edit_menu,
-    handle_delete_product,
     manage_users,
     manage_wallets,
     add_wallet,
@@ -18,17 +18,25 @@ from .admin import (
     manage_locations,
     add_location,
     list_locations,
-    add_wallet,
-    list_wallets,
     manage_categories,
     add_category,
     delete_category,
-    show_stats_menu, show_general_stats, show_sales_stats,
-    show_user_stats, show_performance_stats,
+    show_stats_menu, 
+    show_sales_stats,
+    show_general_stats,
+    show_user_stats, 
+    show_performance_stats,
     start_broadcast,
     handle_purchase_approval,
     show_pending_purchases
 )
+from .admin.products import (
+    add_product,
+    show_edit_menu,
+    handle_delete_product
+)
+
+# Kullanıcı handler modülleri
 from .user import (
     show_products_menu,
     view_products,
@@ -50,104 +58,53 @@ logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle button callbacks"""
+    """
+    Tüm buton etkileşimlerini yönetir.
+    Kaydırma problemini önlemek için mesajları silmek yerine düzenler.
+    """
     query = update.callback_query
-    await query.answer()
+    await query.answer()  # Butona tıklandığını onayla
 
     try:
+        # Kullanıcı yasaklı mı kontrol et
         if query.data != 'exit' and db.is_user_banned(update.effective_user.id):
-            try:
-                await query.message.delete()
-            except Exception as e:
-                logger.error(f"Error deleting message: {e}")
+            error_message = "⛔️ Hesabınız yasaklanmıştır. Daha fazla işlem yapamazsınız."
             
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text="⛔️ Hesabınız yasaklanmıştır. Daha fazla işlem yapamazsınız.",
+            # Mevcut mesajı düzenle
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text=error_message,
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("❌ Çıkış", callback_data='exit')
                 ]])
             )
             return ConversationHandler.END
     
+        # Ana menüye dön
         if query.data == 'main_menu':
             await show_main_menu(update, context)
             return ConversationHandler.END
-        elif query.data.startswith('toggle_ban_'):
-            # Extract user ID from callback data
-            user_id = int(query.data.split('_')[2])
-            logger.info(f"Admin attempting to toggle ban for user {user_id}")
             
-            # Toggle user ban status in database
-            try:
-                # Direct database query to toggle ban status
-                db.cur.execute(
-                    "UPDATE users SET is_banned = CASE WHEN is_banned = 1 THEN 0 ELSE 1 END, "
-                    "failed_payments = CASE WHEN is_banned = 1 THEN 0 ELSE failed_payments END "
-                    "WHERE telegram_id = ?",
-                    (user_id,)
-                )
-                db.conn.commit()
-                
-                # Get updated ban status
-                db.cur.execute(
-                    "SELECT is_banned FROM users WHERE telegram_id = ?",
-                    (user_id,)
-                )
-                result = db.cur.fetchone()
-                
-                if result:
-                    is_banned = bool(result[0])
-                    status = "yasaklandı" if is_banned else "yasağı kaldırıldı"
-                    
-                    # Notify the affected user
-                    try:
-                        message = "⛔️ Hesabınız yasaklanmıştır." if is_banned else "✅ Hesabınızın yasağı kaldırılmıştır."
-                        keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
-                        await context.bot.send_message(
-                            chat_id=user_id,
-                            text=message,
-                            reply_markup=InlineKeyboardMarkup(keyboard)
-                        )
-                        logger.info(f"Successfully notified user {user_id} about ban status change")
-                    except Exception as e:
-                        logger.error(f"Error notifying user {user_id}: {e}")
-                    
-                    # Show success message to admin
-                    await query.answer(f"Kullanıcı başarıyla {status}!")
-                    logger.info(f"User {user_id} ban status changed to {is_banned}")
-                    
-                    # Return to admin users menu using callback instead of direct function call
-                    await query.message.edit_text(
-                        f"✅ Kullanıcı #{user_id} {status}!",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
-                        ]])
-                    )
-                else:
-                    logger.warning(f"User {user_id} not found after ban toggle attempt")
-                    await query.answer("Kullanıcı bulunamadı!")
-                    await query.message.edit_text(
-                        "❌ Kullanıcı bulunamadı!",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
-                        ]])
-                    )
-            except Exception as e:
-                logger.error(f"Error toggling user ban: {e}")
-                await query.answer("İşlem başarısız oldu!")
-                await query.message.edit_text(
-                    "❌ Kullanıcı durumu güncellenirken bir hata oluştu.",
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
-                    ]])
-                )
-            return
+        # Çıkış yap
         elif query.data == 'exit':
-            await query.message.edit_text("👋 Görüşmek üzere!")
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text="👋 Görüşmek üzere!",
+                reply_markup=None
+            )
             return ConversationHandler.END
         
-        # Admin handlers
+        # Siparişleri temizleme işlemleri
+        elif query.data == 'confirm_cleanup_orders':
+            await show_cleanup_confirmation(update, context)
+            return
+        elif query.data == 'cleanup_orders':
+            await handle_cleanup_orders(update, context)
+            return
+            
+        # Admin handler işlemleri
         elif query.data == 'admin_products':
             await manage_products(update, context)
             return
@@ -163,24 +120,30 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await handle_delete_product(update, context, product_id)
             return
         elif query.data == 'edit_name':
-            await query.message.edit_text(
-                "Yeni ürün adını girin:",
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text="Yeni ürün adını girin:",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 İptal", callback_data='admin_products')
                 ]])
             )
             return EDIT_NAME
         elif query.data == 'edit_description':
-            await query.message.edit_text(
-                "Yeni ürün açıklamasını girin:",
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text="Yeni ürün açıklamasını girin:",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 İptal", callback_data='admin_products')
                 ]])
             )
             return EDIT_DESCRIPTION
         elif query.data == 'edit_price':
-            await query.message.edit_text(
-                "Yeni ürün fiyatını USDT olarak girin (sadece sayı):",
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text="Yeni ürün fiyatını USDT olarak girin (sadece sayı):",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 İptal", callback_data='admin_products')
                 ]])
@@ -201,15 +164,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith('delete_wallet_'):
             wallet_id = int(query.data.split('_')[2])
             if db.delete_wallet(wallet_id):
-                await query.message.edit_text(
-                    "✅ Cüzdan başarıyla silindi!",
+                await show_generic_menu(
+                    update=update,
+                    context=context,
+                    text="✅ Cüzdan başarıyla silindi!",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("🔙 Cüzdan Havuzuna Dön", callback_data='admin_wallets')
                     ]])
                 )
             else:
-                await query.message.edit_text(
-                    "❌ Cüzdan silinirken bir hata oluştu.",
+                await show_generic_menu(
+                    update=update,
+                    context=context,
+                    text="❌ Cüzdan silinirken bir hata oluştu.",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("🔙 Cüzdan Havuzuna Dön", callback_data='admin_wallets')
                     ]])
@@ -217,22 +184,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         elif query.data == 'stats_menu':
             await show_stats_menu(update, context)
-            return
-        elif query.data == 'general_stats':
-            await show_general_stats(update, context)
-            return
-        elif query.data == 'view_all_orders':
-            from .admin.payments import view_all_orders
-            await view_all_orders(update, context)
-            return
-        elif query.data == 'sales_stats':
-            await show_sales_stats(update, context)
-            return
-        elif query.data == 'user_stats':
-            await show_user_stats(update, context)
-            return
-        elif query.data == 'performance_stats':
-            await show_performance_stats(update, context)
             return
         elif query.data == 'general_stats':
             await show_general_stats(update, context)
@@ -276,8 +227,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith('select_product_location_'):
             product_id = int(query.data.split('_')[3])
             context.user_data['selected_product_id'] = product_id
-            await query.message.edit_text(
-                "📸 Lütfen konum fotoğrafını gönderin:",
+            await show_generic_menu(
+                update=update,
+                context=context,
+                text="📸 Lütfen konum fotoğrafını gönderin:",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 İptal", callback_data='admin_locations')
                 ]])
@@ -286,26 +239,31 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith('delete_location_'):
             location_id = int(query.data.split('_')[2])
             if db.delete_location(location_id):
-                await query.message.edit_text(
-                    "✅ Konum başarıyla silindi!",
+                await show_generic_menu(
+                    update=update,
+                    context=context,
+                    text="✅ Konum başarıyla silindi!",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("🔙 Konum Havuzuna Dön", callback_data='admin_locations')
                     ]])
                 )
             else:
-                await query.message.edit_text(
-                    "❌ Konum silinirken bir hata oluştu.",
+                await show_generic_menu(
+                    update=update,
+                    context=context,
+                    text="❌ Konum silinirken bir hata oluştu.",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("🔙 Konum Havuzuna Dön", callback_data='admin_locations')
                     ]])
                 )
             return
-        elif query.data == 'show_wallet':
-            # Alternatif bir işlem yapın, örneğin ödeme menüsüne yönlendirin
-            user_payments = importlib.import_module('.user.payments', package='handlers')
-            await user_payments.show_payment_menu(update, context)
+        elif query.data == 'view_all_orders':
+            import importlib
+            admin_payments = importlib.import_module('.admin.payments', package='handlers')
+            await admin_payments.view_all_orders(update, context)
             return
-        # User handlers
+        
+        # User handler işlemleri
         elif query.data == 'products_menu':
             await show_products_menu(update, context)
             return
@@ -346,15 +304,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'show_qr_code':
             await show_qr_code(update, context)
             return
+        elif query.data == 'show_wallet':
+            # Alternatif olarak ödeme menüsüne yönlendir
+            import importlib
+            user_payments = importlib.import_module('.user.payments', package='handlers')
+            await user_payments.show_wallet_address(update, context)
+            return
         elif query.data == 'request_purchase':
             try:
+                import importlib
                 user_payments = importlib.import_module('.user.payments', package='handlers')
                 logger.info("Handling purchase request")
                 await user_payments.handle_purchase_request(update, context)
             except Exception as e:
                 logger.error(f"Error in request_purchase handler: {e}")
-                await query.message.edit_text(
-                    "Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.",
+                await show_generic_menu(
+                    update=update,
+                    context=context,
+                    text="Ödeme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.",
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton("🔙 Sepete Dön", callback_data='show_cart')
                     ]])
@@ -364,7 +331,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await show_support_menu(update, context)
             return
         elif query.data == 'create_ticket':
-            await query.message.edit_text(
+            await show_generic_menu(
+                update=update,
+                context=context,
                 text="Lütfen destek talebinizi yazın:",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🔙 İptal", callback_data='support_menu')]
@@ -374,11 +343,56 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'faq':
             await show_faq(update, context)
             return
+        # Ban/unban işlemi    
+        elif query.data.startswith('toggle_ban_'):
+            user_id = int(query.data.split('_')[2])
+            if db.toggle_user_ban(user_id):
+                user_stats = db.get_user_stats(user_id)
+                if user_stats:
+                    is_banned = user_stats[5]
+                    status = "yasaklandı" if is_banned else "yasağı kaldırıldı"
+                    
+                    # Etkilenen kullanıcıya bildirim gönder
+                    try:
+                        message = "⛔️ Hesabınız yasaklanmıştır." if is_banned else "✅ Hesabınızın yasağı kaldırılmıştır."
+                        keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text=message,
+                            reply_markup=InlineKeyboardMarkup(keyboard)
+                        )
+                    except Exception as e:
+                        logger.error(f"Error notifying user {user_id}: {e}")
+                    
+                    # Admin'e başarı mesajı göster
+                    await query.answer(f"Kullanıcı başarıyla {status}!")
+                    await show_generic_menu(
+                        update=update,
+                        context=context,
+                        text=f"✅ Kullanıcı #{user_id} {status}!",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("🔙 Kullanıcılara Dön", callback_data='admin_users')
+                        ]])
+                    )
+                else:
+                    await query.answer("Kullanıcı bulunamadı!")
+            else:
+                await query.answer("İşlem başarısız oldu!")
+                # Kullanıcı listesine geri dön
+                await manage_users(update, context)
+            return
+        elif query.data.startswith('remove_cart_'):
+            cart_id = int(query.data.split('_')[2])
+            db.remove_from_cart(cart_id)
+            await show_cart(update, context)
+            return
 
     except Exception as e:
         logger.error(f"Error in button_handler: {e}")
-        await query.message.edit_text(
-            "Bir hata oluştu. Lütfen tekrar deneyin.",
+        await show_generic_menu(
+            update=update,
+            context=context,
+            text="Bir hata oluştu. Lütfen tekrar deneyin.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
@@ -386,14 +400,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Cancel current operation and return to main menu"""
+    """İşlemi iptal et ve ana menüye dön"""
     try:
         await update.message.reply_text('İşlem iptal edildi.')
         await show_main_menu(update, context)
     except Exception as e:
         logger.error(f"Error in cancel command: {e}")
-        await update.message.reply_text(
-            'İşlem iptal edildi.',
+        # Doğrudan menu_keyboard kullanarak mesaj göndermek yerine show_generic_menu kullanıyoruz
+        from .menu import get_main_menu_keyboard
+        await show_generic_menu(
+            update=update,
+            context=context,
+            text='İşlem iptal edildi.',
             reply_markup=get_main_menu_keyboard(update.effective_user.id)
         )
     return ConversationHandler.END

@@ -302,6 +302,9 @@ async def show_pending_purchases(update: Update, context: ContextTypes.DEFAULT_T
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
+# payments.py içindeki view_all_orders fonksiyonunu düzenleyin
+# Butonu eklemek için aşağıdaki keyboard tanımını güncelleyin
+
 async def view_all_orders(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """View all orders with filters for admin"""
     try:
@@ -329,6 +332,8 @@ Görüntülemek istediğiniz sipariş türünü seçin:"""
             [InlineKeyboardButton(f"⏳ Bekleyen Siparişler ({pending_count})", callback_data='admin_pending_orders')],
             [InlineKeyboardButton(f"✅ Tamamlanan Siparişler ({completed_count})", callback_data='admin_completed_orders')],
             [InlineKeyboardButton(f"❌ Reddedilen Siparişler ({rejected_count})", callback_data='admin_rejected_orders')],
+            # Temizleme butonu ekleniyor
+            [InlineKeyboardButton("🗑️ Siparişleri Temizle", callback_data='confirm_cleanup_orders')],
             [InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')],
             [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
         ]

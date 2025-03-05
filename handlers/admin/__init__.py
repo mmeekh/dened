@@ -15,6 +15,7 @@ from .products import (
     handle_edit_price,
     handle_stock_input
 )
+from .order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 from .users import manage_users
 from .wallets import manage_wallets, add_wallet, list_wallets
 from .locations import manage_locations, add_location, list_locations, handle_location_photo
@@ -36,7 +37,8 @@ from .stats import (
     show_performance_stats
 )
 
-__all__ = [
+__all__ = ['show_cleanup_confirmation',
+    'handle_cleanup_orders',
     'manage_products',
     'add_product',
     'show_edit_menu',
