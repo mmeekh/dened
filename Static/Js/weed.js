@@ -1,6 +1,6 @@
 // Karakter görseli
 const characterImage = new Image();
-characterImage.src = 'Static/Assets/flappy-character.png'; // Capital "A" in Assets
+characterImage.src = 'Static/assets/flappy-character.png';
 
 class Weed {
     constructor(canvas) {
