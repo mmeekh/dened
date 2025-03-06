@@ -52,34 +52,27 @@ class Weed {
     }
     
     draw(ctx) {
-        ctx.save(); // Mevcut çizim durumunu kaydet
-        
-        // Karakterin hareketi için açı hesaplama
-        let angle = 0;
-        if (this.velocity < 0) {
-            // Yukarı doğru hareket ederken hafif yukarı bak
-            angle = -Math.PI/15; // Yaklaşık -12 derece
-        } else if (this.velocity > 1) {
-            angle = Math.PI/15; // Yaklaşık 12 derece
-        }
-        
-        ctx.translate(this.x, this.y);
-        ctx.rotate(angle);
-        
-        if (this.imageLoaded) {
-            // If image loaded successfully, draw the image
-            ctx.drawImage(
-                this.image, 
-                -this.width/2, 
-                -this.height/2, 
-                this.width, 
-                this.height
-            );
+        if (characterImg.complete && characterImg.naturalHeight !== 0) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            
+            // Rotate based on velocity
+            let angle = 0;
+            if (this.velocity < 0) {
+                angle = -Math.PI/15;
+            } else if (this.velocity > 1) {
+                angle = Math.PI/15;
+            }
+            ctx.rotate(angle);
+            
+            // Draw the image
+            ctx.drawImage(characterImg, -this.width/2, -this.height/2, this.width, this.height);
+            ctx.restore();
         } else {
-            // Fallback: Draw a simple weed if image fails to load
+            // Fallback to original drawing code
             ctx.fillStyle = '#44A244';
             ctx.beginPath();
-            ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+            ctx.ellipse(this.x, this.y, this.width/2, this.height/2, 0, 0, Math.PI * 2);
             ctx.fill();
             
             ctx.strokeStyle = '#2E7D32';
