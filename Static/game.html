@@ -24,6 +24,8 @@
             height: 480px;
             overflow: hidden;
             background: linear-gradient(to bottom, #87CEEB, #E0F7FF);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
         }
         
         #game-canvas {
@@ -43,6 +45,7 @@
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
             z-index: 10;
+            text-align: center;
         }
         
         .game-over {
@@ -58,6 +61,7 @@
             background-color: rgba(0, 0, 0, 0.7);
             color: white;
             z-index: 10;
+            text-align: center;
         }
         
         button {
@@ -72,6 +76,12 @@
             margin: 10px 2px;
             cursor: pointer;
             border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
         }
         
         .score {
@@ -82,351 +92,74 @@
             color: white;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
         }
+        
+        .game-title {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .instruction {
+            color: #ffff00;
+            font-weight: bold;
+            margin: 10px 20px;
+            line-height: 1.4;
+        }
+        
+        .score-info {
+            margin: 5px 0;
+            font-size: 18px;
+        }
+        
+        #toggle-sound {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: transparent;
+            font-size: 24px;
+            padding: 5px;
+            color: white;
+            cursor: pointer;
+            border: none;
+            z-index: 20;
+        }
+        
+        @media (max-height: 480px) {
+            #game-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="game-container">
         <canvas id="game-canvas" width="320" height="480"></canvas>
         <div class="score">0</div>
+        <button id="toggle-sound" onclick="game.sound.toggle()">🔊</button>
         
         <div class="start-screen">
-            <h2>Flappy Weed</h2>
+            <h1 class="game-title">Flappy Weed</h1>
             <p>Ekrana tıklayarak zıpla, borulardan kaç!</p>
-            <p style="color: #ffff00; font-weight: bold;">ÖNEMLİ: Sürekli tıklayarak karakteri havada tut!<br>Her 1-2 saniyede bir tıkla!</p>
+            <p class="instruction">ÖNEMLİ: Sürekli tıklayarak karakteri havada tut!<br>Her 1-2 saniyede bir tıkla!</p>
             <button id="start-button">Oyuna Başla</button>
         </div>
         
         <div class="game-over">
             <h2>Oyun Bitti!</h2>
-            <p>Skorun: <span id="final-score">0</span></p>
+            <p class="score-info">Skorun: <span id="final-score">0</span></p>
+            <p class="score-info">En Yüksek Skorun: <span id="high-score">0</span></p>
             <button id="restart-button">Tekrar Oyna</button>
             <button id="submit-score">Skoru Kaydet</button>
         </div>
     </div>
 
-    <script>
-        // Oyun değişkenleri
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        const scoreDisplay = document.querySelector('.score');
-        const startScreen = document.querySelector('.start-screen');
-        const gameOverScreen = document.querySelector('.game-over');
-        const finalScoreDisplay = document.getElementById('final-score');
-        const startButton = document.getElementById('start-button');
-        const restartButton = document.getElementById('restart-button');
-        const submitScoreButton = document.getElementById('submit-score');
-                
-        let gameActive = false;
-        let score = 0;
-        let gravity = 0.25; 
-        let pipes = [];
-        let pipeWidth = 70;
-        let pipeGap = 220;
-        let pipeSpeed = 3.0; // 2.0'dan 3.0'a artırıldı - 1.5x daha hızlı oyun
-        let minPipeHeight = 40;
-        let nextPipe = 100;
-        let pipeInterval = 100;
-        
-        // Telegram web uygulama parametrelerini al
-        function getUrlParameter(name) {
-            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
-            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
-            var results = regex.exec(location.search);
-            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
-        }
-        
-        const gameSession = getUrlParameter('session');
-        
-        // Weed nesnesini oluştur
-        const weed = {
-            x: 50,
-            y: canvas.height / 2,
-            width: 40,
-            height: 30,
-            velocity: 0,
-            floatOffset: 0, // Yüzme efekti için
-            floatSpeed: 0.05, // Yüzme hızı
-            
-            update: function() {
-                this.velocity += gravity;
-                
-                // Hafif yüzme hareketi ekle
-                this.floatOffset += this.floatSpeed;
-                let floatEffect = Math.sin(this.floatOffset) * 0.3;
-                this.y += this.velocity + floatEffect;
-                
-                if (this.velocity > 5) {
-                    this.velocity = 5;
-                }
-                
-                // Zemin ve tavan kontrolleri
-                if (this.y + this.height/2 > canvas.height - 20) {
-                    this.y = canvas.height - 20 - this.height/2;
-                    this.velocity = 0;
-                    gameOver();
-                }
-                
-                if (this.y - this.height/2 < 0) {
-                    this.y = this.height/2;
-                    this.velocity = 0;
-                }
-            },
-            
-            jump: function() {
-                this.velocity = -5.5; // Çok daha yumuşak zıplama
-            },
-            
-            reset: function() {
-                this.y = canvas.height / 3; // Daha yukarıdan başlasın
-                this.velocity = -1; // Çok hafif yukarı hareket
-                this.floatOffset = 0;
-            },
-            
-            draw: function() {
-                ctx.fillStyle = '#44A244'; // Daha koyu yeşil
-                
-                // Ana yaprak
-                ctx.beginPath();
-                ctx.ellipse(this.x, this.y, this.width/2, this.height/2, 0, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Yaprak damarları
-                ctx.strokeStyle = '#2E7D32';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.moveTo(this.x - this.width/3, this.y);
-                ctx.lineTo(this.x + this.width/3, this.y);
-                ctx.stroke();
-                
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y - this.height/3);
-                ctx.lineTo(this.x, this.y + this.height/3);
-                ctx.stroke();
-                
-                // Yaprak detayları
-                ctx.fillStyle = '#388E3C';
-                // Sol yaprak parçası
-                ctx.beginPath();
-                ctx.moveTo(this.x - this.width/2, this.y);
-                ctx.lineTo(this.x - this.width/4, this.y - this.height/4);
-                ctx.lineTo(this.x, this.y);
-                ctx.fill();
-                
-                // Sağ yaprak parçası
-                ctx.beginPath();
-                ctx.moveTo(this.x + this.width/2, this.y);
-                ctx.lineTo(this.x + this.width/4, this.y - this.height/4);
-                ctx.lineTo(this.x, this.y);
-                ctx.fill();
-                
-                // Alt yaprak parçası
-                ctx.beginPath();
-                ctx.moveTo(this.x - this.width/3, this.y + this.height/3);
-                ctx.lineTo(this.x, this.y + this.height/2);
-                ctx.lineTo(this.x + this.width/3, this.y + this.height/3);
-                ctx.fill();
-            }
-        };
-        
-        // Boru oluşturma fonksiyonu
-        function createPipe() {
-            const minHeight = 50;
-            const maxHeight = canvas.height - pipeGap - minHeight;
-            const height = Math.floor(Math.random() * (maxHeight - minHeight)) + minHeight;
-            
-            const pipe = {
-                x: canvas.width,
-                y: 0,
-                width: pipeWidth,
-                topHeight: height,
-                bottomY: height + pipeGap,
-                bottomHeight: canvas.height - height - pipeGap,
-                scored: false,
-                
-                draw: function() {
-                    // Üst boru
-                    ctx.fillStyle = '#689F38';
-                    ctx.fillRect(this.x, this.y, this.width, this.topHeight);
-                    
-                    // Boru başlığı
-                    ctx.fillStyle = '#558B2F';
-                    ctx.fillRect(this.x - 5, this.topHeight - 20, this.width + 10, 20);
-                    
-                    // Alt boru
-                    ctx.fillStyle = '#689F38';
-                    ctx.fillRect(this.x, this.bottomY, this.width, this.bottomHeight);
-                    
-                    // Boru başlığı
-                    ctx.fillStyle = '#558B2F';
-                    ctx.fillRect(this.x - 5, this.bottomY, this.width + 10, 20);
-                },
-                
-                update: function() {
-                    this.x -= pipeSpeed;
-                    
-                    // Skor kontrolü
-                    if (!this.scored && this.x + this.width < weed.x) {
-                        score++;
-                        scoreDisplay.textContent = score;
-                        this.scored = true;
-                        playSound('score');
-                    }
-                    
-                    // Çarpışma kontrolü
-                    if (this.x < weed.x + weed.width/2 && this.x + this.width > weed.x - weed.width/2) {
-                        // Üst boru ile çarpışma
-                        if (weed.y - weed.height/2 < this.topHeight) {
-                            gameOver();
-                            return;
-                        }
-                        
-                        // Alt boru ile çarpışma
-                        if (weed.y + weed.height/2 > this.bottomY) {
-                            gameOver();
-                            return;
-                        }
-                    }
-                }
-            };
-            
-            return pipe;
-        }
-        
-        // Ses efektleri
-        function playSound(sound) {
-            if (sound === 'jump') {
-                // Zıplama sesi
-            } else if (sound === 'score') {
-                // Skor sesi
-            } else if (sound === 'death') {
-                // Ölüm sesi
-            }
-        }
-        
-        // Oyun döngüsü
-        function gameLoop() {
-            if (!gameActive) return;
-            
-            // Ekranı temizle
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Arka plan
-            drawBackground();
-            
-            // Yeni borular oluştur
-            nextPipe--;
-            if (nextPipe <= 0) {
-                pipes.push(createPipe());
-                nextPipe = pipeInterval; // Değiştirildi - daha geniş borular arası mesafe
-            }
-            
-            // Boruları çiz ve güncelle
-            for (let i = 0; i < pipes.length; i++) {
-                pipes[i].draw();
-                pipes[i].update();
-                
-                // Ekrandan çıkmış boruları kaldır
-                if (pipes[i].x + pipes[i].width < 0) {
-                    pipes.splice(i, 1);
-                    i--;
-                }
-            }
-            
-            // Weed karakterini güncelle ve çiz
-            weed.update();
-            weed.draw();
-            
-            // Oyun döngüsünü devam ettir
-            requestAnimationFrame(gameLoop);
-        }
-        
-        // Arka plan çizimi
-        function drawBackground() {
-            // Gökyüzü ve zemin
-            ctx.fillStyle = '#87CEEB';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Zemin
-            ctx.fillStyle = '#8B4513';
-            ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
-            
-            // Çim
-            ctx.fillStyle = '#7CFC00';
-            ctx.fillRect(0, canvas.height - 25, canvas.width, 5);
-        }
-        
-        // Oyunu başlat
-        function startGame() {
-            gameActive = true;
-            score = 0;
-            pipes = [];
-            nextPipe = 100; // 250'den 100'e düşürüldü - ilk boru daha erken gelecek
-            
-            weed.reset();
-            scoreDisplay.textContent = score;
-            startScreen.style.display = 'none';
-            gameOverScreen.style.display = 'none';
-            
-            // Başlangıçta çok hafif bir yukarı hareket
-            weed.velocity = -0.5;
-            
-            gameLoop();
-        }
-        
-        // Oyun sonu
-        function gameOver() {
-            gameActive = false;
-            gameOverScreen.style.display = 'flex';
-            finalScoreDisplay.textContent = score;
-            playSound('death');
-        }
-        
-        // Skoru kaydet ve Telegram'a gönder
-        function saveScore() {
-            const data = {
-                session: gameSession,
-                score: score
-            };
-            
-            try {
-                // Telegram WebApp API kullanarak skoru bot'a gönder
-                if (window.Telegram && window.Telegram.WebApp) {
-                    window.Telegram.WebApp.sendData(JSON.stringify(data));
-                    alert("Skorunuz kaydedildi!");
-                } else {
-                    // Telegram WebApp API yoksa URL ile yönlendir
-                    window.location.href = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
-                }
-            } catch (e) {
-                console.error("Skor kaydedilirken hata:", e);
-                alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
-            }
-        }
-        
-        // Tıklama/dokunma olayları
-        canvas.addEventListener('click', function() {
-            if (gameActive) {
-                weed.jump();
-                playSound('jump');
-            }
-        });
-        
-        canvas.addEventListener('touchstart', function(e) {
-            e.preventDefault();
-            if (gameActive) {
-                weed.jump();
-                playSound('jump');
-            }
-        });
-        
-        // Buton olayları
-        startButton.addEventListener('click', startGame);
-        restartButton.addEventListener('click', startGame);
-        submitScoreButton.addEventListener('click', saveScore);
-        
-        // İlk ekranı göster
-        drawBackground();
-        weed.draw();
-    </script>
+    <!-- Load game scripts -->
+    <script src="Static/Js/sound.js"></script>
+    <script src="Static/Js/background.js"></script>
+    <script src="Static/Js/pipe.js"></script>
+    <script src="Static/Js/weed.js"></script>
+    <script src="Static/Js/game.js"></script>
 </body>
 </html>
