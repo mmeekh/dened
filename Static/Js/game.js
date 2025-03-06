@@ -8,8 +8,8 @@ class Game {
         this.score = 0;
         this.gameActive = false;
         this.pipes = [];
-        this.pipeSpeed = 2.5;  // Increased from 1.8 to 2.5 (roughly 1.4x faster)
-        this.pipeInterval = 70;  // Kept the same interval
+        this.pipeSpeed = 1.8;  // Increased from 1.8 to 2.5 (roughly 1.4x faster)
+        this.pipeInterval = 140;  // Kept the same interval
         this.nextPipe = 70;  // Adjusted to match initial interval
         this.gameStartTime = 0;
         this.elapsedFrames = 0;
