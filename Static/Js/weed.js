@@ -1,6 +1,6 @@
 // Karakter görseli
 const characterImage = new Image();
-characterImage.src = 'Static/assets/flappy-character.png'; // Görselin yolunu buraya yazın
+characterImage.src = 'Static/assets/flappy-character.svg'; // SVG kullanıyoruz
 
 class Weed {
     constructor(canvas) {
