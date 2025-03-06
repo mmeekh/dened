@@ -66,7 +66,7 @@ async def show_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle purchase request creation with single message output"""
+    """Handle purchase request creation with discount application"""
     logger.info("Starting purchase request process")
     user_id = update.effective_user.id
     
@@ -92,8 +92,23 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
+    # Calculate total
     total = sum(item[2] * item[3] for item in cart_items)
     logger.info(f"Cart total for user {user_id}: {total} USDT")
+    
+    # Apply discount if available
+    discount_info = context.user_data.get('active_discount')
+    discount_text = ""
+    discount_percent = 0
+    coupon_id = None
+    
+    if discount_info and discount_info.get('valid'):
+        discount_percent = discount_info.get('discount_percent', 0)
+        coupon_id = discount_info.get('coupon_id')
+        discount_amount = (total * discount_percent) / 100
+        total = total - discount_amount
+        discount_text = f"\n💯 İndirim: %{discount_percent} (-{discount_amount:.2f} USDT)"
+        logger.info(f"Applied discount: {discount_percent}%, new total: {total} USDT")
     
     if total < 20:
         logger.warning(f"User {user_id} order below minimum (Total: {total} USDT)")
@@ -122,53 +137,25 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         wallet = active_request.get('wallet')
         logger.info(f"Reusing existing wallet {wallet} for user {user_id}")
     else:
-        logger.info("Checking for available wallets")
-        available_wallets = db.get_available_wallet_count()
-        logger.info(f"Found {available_wallets} available wallets")
+        logger.info("Getting available wallet")
+        wallet = db.get_available_wallet()
         
-        if available_wallets == 0:
-            logger.warning("No available wallets, attempting to free up wallets")
-            try:
-                db.conn.execute("""
-                    UPDATE wallets SET in_use = 0
-                    WHERE address NOT IN (
-                        SELECT wallet FROM purchase_requests WHERE status = 'pending'
-                    )
-                """)
-                db.conn.commit()
-                logger.info("Reset some wallets to available state")
-            except Exception as e:
-                logger.error(f"Error resetting wallets: {e}")
-        
-        wallet = db.get_available_wallet()       
         if not wallet:
-            logger.error("Still no available wallet found, creating emergency wallet")
-            emergency_wallet = "T" + "".join([str(random.randint(1, 9)) for _ in range(33)])
-            
-            try:
-                db.add_wallet(emergency_wallet)
-                logger.info(f"Added emergency wallet: {emergency_wallet}")
-                wallet = emergency_wallet
-            except Exception as e:
-                logger.error(f"Error adding emergency wallet: {e}")
-        
-    # Hala cüzdan yoksa, kullanıcıya bilgi ver
-    if not wallet:
-        logger.error("Failed to get or create a wallet for purchase")
-        await update.callback_query.message.edit_text(
-            """❌ Şu anda uygun cüzdan bulunmamaktadır.
+            logger.error("No available wallet found")
+            await update.callback_query.message.edit_text(
+                """❌ Şu anda uygun cüzdan bulunmamaktadır.
 
 Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
-            ]])
-        )
-        return
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+                ]])
+            )
+            return
     
     logger.info(f"Using wallet {wallet} for purchase request")
     
-    # Satın alma talebi oluştur
-    request_id = db.create_purchase_request(user_id, cart_items, wallet)
+    # Create purchase request with discount info
+    request_id = db.create_purchase_request(user_id, cart_items, wallet, discount_percent)
     if not request_id:
         logger.error(f"Failed to create purchase request for user {user_id}")
         await update.callback_query.message.edit_text(
@@ -181,19 +168,35 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     
     logger.info(f"Created purchase request #{request_id} for user {user_id}")
     
-    # Sepeti temizle
+    # Mark coupon as used if applicable
+    if coupon_id:
+        db.apply_discount_coupon(coupon_id)
+        # Clear the active discount from user_data
+        if 'active_discount' in context.user_data:
+            del context.user_data['active_discount']
+    
+    # Clear cart
     db.clear_user_cart(user_id)
     logger.info(f"Cleared cart for user {user_id}")
     
-    # Admini bilgilendir
+    # Rest of your existing handle_purchase_request function...
+    # (Notify admin, create QR code, show confirmation to user, etc.)
+    
+    # Notify admin with discount information
     admin_message = f"🛍️ Yeni Satın Alma Talebi #{request_id}\n\n"
     admin_message += f"👤 Kullanıcı ID: {user_id}\n"
     admin_message += "📦 Ürünler:\n"
     
+    subtotal = sum(item[2] * item[3] for item in cart_items)
     for item in cart_items:
         admin_message += f"- {item[1]} (x{item[3]}) - {item[2] * item[3]} USDT\n"
     
-    admin_message += f"\n💰 Toplam: {total} USDT"
+    admin_message += f"\n💰 Alt Toplam: {subtotal} USDT"
+    
+    if discount_percent > 0:
+        admin_message += f"\n🏷️ İndirim: %{discount_percent} (-{(subtotal * discount_percent / 100):.2f} USDT)"
+    
+    admin_message += f"\n💵 Ödenecek Tutar: {total} USDT"
     admin_message += f"\n🏦 Cüzdan: {wallet}"
     
     keyboard = [
@@ -213,41 +216,23 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     except Exception as e:
         logger.error(f"Error sending admin notification: {e}")
     
-    # QR kodunu oluştur
-    qr_image = None
-    try:
-        # QR kodu oluştur
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=5
-        )
-        qr.add_data(wallet)
-        qr.make(fit=True)
-        
-        # Resim oluştur
-        img = qr.make_image(fill_color="black", back_color="white")
-        bio = BytesIO()
-        img.save(bio, 'PNG')
-        bio.seek(0)
-        qr_image = bio
-        logger.info(f"QR code successfully generated for wallet {wallet}")
-    except Exception as e:
-        logger.error(f"Error generating QR code: {e}")
-        qr_image = None
-        
-    # Orijinal mesajı sil ve yerine yeni mesaj gönder
+    # User confirmation with discount information
     try:
         await update.callback_query.message.delete()
     except Exception as e:
         logger.error(f"Error deleting message: {e}")
     
-    # Kullanıcıya sadece bir mesaj içinde hem QR kod hem de bilgileri gönder
     caption = f"""✅ Satın alma talebiniz oluşturuldu!
 
 🛍️ Sipariş #{request_id}
-💰 Toplam Tutar: {total} USDT
+💰 Toplam Tutar: {subtotal} USDT"""
+
+    if discount_percent > 0:
+        discount_amount = subtotal * discount_percent / 100
+        caption += f"\n🏷️ İndirim: %{discount_percent} (-{discount_amount:.2f} USDT)"
+        caption += f"\n💵 Ödenecek Tutar: {total} USDT"
+
+    caption += f"""
 
 🏦 TRC20 Cüzdan Adresi:
 <code>{wallet}</code>
@@ -258,15 +243,37 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
 • QR kodu Binance uygulamasında okutabilirsiniz
 • Ödeme sonrası 5-10 dk bekleyin
 • Farklı tutar/ağ kullanmayın!"""
-
+    
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],
         [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
     ])
     
+    # Generate QR code
+    qr_image = None
+    try:
+        import qrcode
+        from io import BytesIO
+        
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=5
+        )
+        qr.add_data(wallet)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        bio = BytesIO()
+        img.save(bio, 'PNG')
+        bio.seek(0)
+        qr_image = bio
+    except Exception as e:
+        logger.error(f"Error generating QR code: {e}")
+    
     try:
         if qr_image:
-            # QR kod oluşturulduysa, fotoğraflı mesaj gönder
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
                 photo=qr_image,
@@ -274,31 +281,23 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
-            logger.info(f"Sent purchase confirmation with QR code to user {user_id}")
         else:
-            # QR kod oluşturulamadıysa, sadece metin gönder
             await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=caption,
                 parse_mode='HTML',
                 reply_markup=reply_markup
             )
-            logger.info(f"Sent purchase confirmation without QR code to user {user_id}")
     except Exception as e:
         logger.error(f"Error sending confirmation message: {e}")
-        # Mesaj gönderme hatası durumunda son bir deneme daha yap
-        try:
-            await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"✅ Sipariş #{request_id} oluşturuldu! Toplam: {total} USDT",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
-                ]])
-            )
-        except Exception as e2:
-            logger.error(f"Final error sending fallback message: {e2}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"✅ Sipariş #{request_id} oluşturuldu! Ödeme bilgileri için lütfen sipariş detaylarınızı kontrol edin.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+            ]])
+        )
     
-    logger.info(f"Purchase request process completed for user {user_id}")
     return ConversationHandler.END
 async def show_wallet_address(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show wallet address for manual payment"""

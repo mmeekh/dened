@@ -21,6 +21,7 @@ from handlers.admin.categories import (
 )
 from handlers.admin.wallets import handle_wallet_input
 from handlers.admin.locations import handle_location_photo
+from handlers.user.cart import handle_discount_code
 from handlers import (
     # Admin handlers
     manage_products,
@@ -215,6 +216,7 @@ if __name__ == '__main__':
                 CATEGORY_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_category_name)],
                 CATEGORY_DESCRIPTION: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_category_description)],
                 STOCK_CHANGE: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_stock_input)],
+                DISCOUNT_CODE_INPUT: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_discount_code)],
                 LOCATION_PHOTO: [MessageHandler(filters.PHOTO, handle_location_photo)],
             },
             fallbacks=[

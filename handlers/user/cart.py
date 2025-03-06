@@ -4,12 +4,14 @@ from database import Database
 from config import ADMIN_ID
 from states import CART_QUANTITY
 import logging
+import asyncio
+from states import DISCOUNT_CODE_INPUT
 
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user's cart with options to remove items and proceed to checkout"""
+    """Show user's cart with options to remove items, apply discount code, and proceed to checkout"""
     user_id = update.effective_user.id
     cart_items = db.get_cart_items(user_id)
 
@@ -29,8 +31,21 @@ async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=reply_markup
         )
         return
+    
+    # Calculate total before discount
     total = sum(item[2] * item[3] for item in cart_items)  # price * quantity
     total_items = sum(item[3] for item in cart_items)  # sum of quantities
+    
+    # Check for active discount code in user_data
+    discount_info = context.user_data.get('active_discount')
+    applied_discount_text = ""
+    final_total = total
+    
+    if discount_info and discount_info.get('valid'):
+        discount_percent = discount_info.get('discount_percent', 0)
+        discount_amount = (total * discount_percent) / 100
+        final_total = total - discount_amount
+        applied_discount_text = f"\n💯 İndirim: %{discount_percent} (-{discount_amount:.2f} USDT)"
     
     message = f"""🛒 Sepetim ({total_items} ürün)
 
@@ -47,13 +62,29 @@ async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     message += f"""
 ───────────────
-💰 Toplam Tutar: {total} USDT
+💰 Toplam Tutar: {total} USDT{applied_discount_text}"""
+
+    if discount_info and discount_info.get('valid'):
+        message += f"\n💵 Ödenecek Tutar: {final_total:.2f} USDT"
+    
+    message += f"""
 
 ℹ️ Minimum sipariş: 20 USDT
 ℹ️ Maksimum sipariş: 1000 USDT"""
     
+    # Add discount code buttons
+    if discount_info and discount_info.get('valid'):
+        keyboard.append([InlineKeyboardButton("🎟️ İndirim Kodu Değiştir", callback_data='enter_discount_code')])
+    else:
+        keyboard.append([InlineKeyboardButton("🎟️ İndirim Kodu Ekle", callback_data='enter_discount_code')])
+        # Show available coupons if any
+        coupons = db.get_user_available_coupons(user_id)
+        if coupons:
+            keyboard.append([InlineKeyboardButton("🏷️ Kuponlarımı Göster", callback_data='show_my_coupons')])
+    
+    # Add checkout button if valid price range
     if cart_items:
-        if 20 <= total <= 1000:
+        if 20 <= final_total <= 1000:
             keyboard.append([InlineKeyboardButton("💳 Ödemeye Geç", callback_data='request_purchase')])
         else:
             message += "\n\n❌ Tutar sınırlar dışında!"
@@ -183,3 +214,121 @@ async def handle_cart_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
             ]])
         )
         return CART_QUANTITY
+
+async def prompt_discount_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show discount code entry prompt"""
+    await update.callback_query.message.edit_text(
+        text="🎟️ İndirim Kodu Giriş\n\nLütfen 10 haneli indirim kodunu girin:",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 Sepete Dön", callback_data="show_cart")
+        ]])
+    )
+    return DISCOUNT_CODE_INPUT
+
+async def handle_discount_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle discount code input"""
+    user_id = update.effective_user.id
+    coupon_code = update.message.text.strip().upper()
+    
+    # Delete the user's message to keep the chat clean
+    try:
+        await update.message.delete()
+    except Exception as e:
+        logger.error(f"Error deleting message: {e}")
+    
+    # Validate discount code
+    result = db.validate_discount_coupon(coupon_code, user_id)
+    
+    if result["valid"]:
+        # Store discount info in user_data for later use
+        context.user_data['active_discount'] = result
+        message = f"✅ {result['message']}"
+    else:
+        # Clear any existing discount
+        if 'active_discount' in context.user_data:
+            del context.user_data['active_discount']
+        message = f"❌ {result['message']}"
+    
+    # Send a temporary notification
+    temp_msg = await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text=message
+    )
+    
+    # Auto-delete after 3 seconds
+    await asyncio.sleep(3)
+    try:
+        await temp_msg.delete()
+    except:
+        pass
+    
+    # Show the cart with discount applied
+    await show_cart(update, context)
+    return ConversationHandler.END
+
+async def show_user_coupons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user's available discount coupons"""
+    user_id = update.effective_user.id
+    coupons = db.get_user_available_coupons(user_id)
+    
+    if not coupons:
+        await update.callback_query.message.edit_text(
+            text="🏷️ Kuponlarım\n\nHenüz indirim kuponunuz bulunmamaktadır. Oyun oynayarak indirim kazanabilirsiniz!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎮 Oyun Oyna", callback_data="games_menu")],
+                [InlineKeyboardButton("🔙 Sepete Dön", callback_data="show_cart")]
+            ])
+        )
+        return
+    
+    message = "🏷️ Kuponlarım\n\nMevcut indirim kuponlarınız:\n\n"
+    keyboard = []
+    
+    for i, (code, discount, source, expires) in enumerate(coupons):
+        expires_text = ""
+        if expires:
+            try:
+                expiry_date = datetime.strptime(expires, '%Y-%m-%d %H:%M:%S')
+                expires_text = f" (Son kullanım: {expiry_date.strftime('%d.%m.%Y')})"
+            except:
+                pass
+        
+        message += f"🎟️ Kupon #{i+1}: {code}\n"
+        message += f"💯 İndirim: %{discount}\n"
+        message += f"🔍 Kaynak: {source}{expires_text}\n\n"
+        
+        keyboard.append([
+            InlineKeyboardButton(f"🔄 Kullan: %{discount} indirim", callback_data=f"use_coupon_{code}")
+        ])
+    
+    keyboard.append([InlineKeyboardButton("🔙 Sepete Dön", callback_data="show_cart")])
+    
+    await update.callback_query.message.edit_text(
+        text=message,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def apply_coupon_from_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Apply a coupon selected from the list"""
+    user_id = update.effective_user.id
+    coupon_code = update.callback_query.data.split("_")[2]
+    
+    # Validate discount code
+    result = db.validate_discount_coupon(coupon_code, user_id)
+    
+    if result["valid"]:
+        # Store discount info in user_data for later use
+        context.user_data['active_discount'] = result
+        
+        # Send a temporary notification
+        await update.callback_query.answer(f"✅ {result['message']}", show_alert=True)
+    else:
+        # Clear any existing discount
+        if 'active_discount' in context.user_data:
+            del context.user_data['active_discount']
+        
+        # Send error notification
+        await update.callback_query.answer(f"❌ {result['message']}", show_alert=True)
+    
+    # Show the cart with discount applied
+    await show_cart(update, context)

@@ -352,7 +352,6 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
-            
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS discount_coupons (
                 id INTEGER PRIMARY KEY,
@@ -366,7 +365,15 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
-            
+            self.cur.execute("PRAGMA table_info(purchase_requests)")
+            columns = [column[1] for column in self.cur.fetchall()]
+
+            if "discount_percent" not in columns:
+                self.cur.execute('''
+                ALTER TABLE purchase_requests 
+                ADD COLUMN discount_percent INTEGER DEFAULT 0
+                ''')
+
             self.conn.commit()
             logger.info("Game-related database tables created successfully")
         except Exception as e:
@@ -1371,27 +1378,55 @@ class Database:
             return False
 
     def get_top_scores(self, limit: int = 10) -> list:
-        """Get top scores from all users"""
+        """Get users with highest single-game scores"""
         try:
             self.cur.execute("""
                 SELECT 
                     gs.user_id,
-                    u.username,
-                    MAX(gs.score) as max_score,
+                    MAX(gs.score) as best_score,
                     gs.created_at
                 FROM game_scores gs
-                LEFT JOIN users u ON gs.user_id = u.telegram_id
                 GROUP BY gs.user_id
-                ORDER BY max_score DESC
+                ORDER BY best_score DESC
                 LIMIT ?
             """, (limit,))
             return self.cur.fetchall()
         except Exception as e:
             logger.error(f"Error getting top scores: {e}")
             return []
-
+        
+    def get_user_total_score(self, user_id: int) -> int:
+        """Get user's total accumulated score from all games"""
+        try:
+            self.cur.execute(
+                "SELECT SUM(score) FROM game_scores WHERE user_id = ?",
+                (user_id,)
+            )
+            result = self.cur.fetchone()
+            return result[0] if result and result[0] else 0
+        except Exception as e:
+            logger.error(f"Error getting user total score: {e}")
+            return 0
+        
+    def get_top_total_scores(self, limit: int = 10) -> list:
+        """Get users with highest total accumulated scores"""
+        try:
+            self.cur.execute("""
+                SELECT 
+                    gs.user_id,
+                    SUM(gs.score) as total_score,
+                    COUNT(gs.id) as games_played
+                FROM game_scores gs
+                GROUP BY gs.user_id
+                ORDER BY total_score DESC
+                LIMIT ?
+            """, (limit,))
+            return self.cur.fetchall()
+        except Exception as e:
+            logger.error(f"Error getting top total scores: {e}")
+            return []
     def get_user_best_score(self, user_id: int) -> int:
-        """Get user's best score"""
+        """Get user's best score (highest single game score)"""
         try:
             self.cur.execute(
                 "SELECT MAX(score) FROM game_scores WHERE user_id = ?",
@@ -1428,21 +1463,29 @@ class Database:
         except Exception as e:
             logger.error(f"Error creating discount coupon: {e}")
             return "ERROR"
-    def create_purchase_request(self, user_id: int, cart_items: list, wallet: str) -> Optional[int]:
-        """Create a new purchase request with assigned wallet"""
+    def create_purchase_request(self, user_id: int, cart_items: list, wallet: str, discount_percent: int = 0) -> Optional[int]:
+        """Create a new purchase request with assigned wallet and optional discount"""
         try:
             # Start transaction
             self.cur.execute("BEGIN TRANSACTION")
             
-            # Calculate total amount
-            total_amount = sum(item[2] * item[3] for item in cart_items)
+            # Calculate subtotal
+            subtotal = sum(item[2] * item[3] for item in cart_items)
+            
+            # Apply discount if any
+            discount_amount = 0
+            if discount_percent > 0:
+                discount_amount = (subtotal * discount_percent) / 100
+            
+            # Final total after discount
+            total_amount = subtotal - discount_amount
             
             # Create purchase request
             self.cur.execute(
                 """INSERT INTO purchase_requests 
-                   (user_id, total_amount, wallet, status) 
-                   VALUES (?, ?, ?, 'pending')""",
-                (user_id, total_amount, wallet)
+                (user_id, total_amount, wallet, status, discount_percent) 
+                VALUES (?, ?, ?, 'pending', ?)""",
+                (user_id, total_amount, wallet, discount_percent)
             )
             request_id = self.cur.lastrowid
             
@@ -1450,8 +1493,8 @@ class Database:
             for item in cart_items:
                 self.cur.execute(
                     """INSERT INTO purchase_request_items 
-                       (request_id, product_id, quantity, price) 
-                       VALUES (?, ?, ?, ?)""",
+                    (request_id, product_id, quantity, price) 
+                    VALUES (?, ?, ?, ?)""",
                     (request_id, item[4], item[3], item[2])
                 )
             
@@ -1459,7 +1502,7 @@ class Database:
             self.cur.execute("COMMIT")
             self.conn.commit()
             
-            logger.info(f"Created purchase request #{request_id} for user {user_id}")
+            logger.info(f"Created purchase request #{request_id} for user {user_id} with {discount_percent}% discount")
             return request_id
             
         except Exception as e:
@@ -1570,3 +1613,97 @@ class Database:
         except Exception as e:
             logger.error(f"Error deleting wallet: {e}")
             return False
+    def create_discount_coupon(self, user_id: int, discount_percent: int, source: str) -> str:
+        """Create a discount coupon for a user with 10-digit code"""
+        try:
+            import random
+            import string
+            
+            # Generate a 10-digit alphanumeric coupon code
+            coupon_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+            
+            # Set expiry date to 30 days from now
+            expires_at = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+            
+            self.cur.execute(
+                """INSERT INTO discount_coupons 
+                (user_id, coupon_code, discount_percent, source, expires_at) 
+                VALUES (?, ?, ?, ?, ?)""",
+                (user_id, coupon_code, discount_percent, source, expires_at)
+            )
+            
+            self.conn.commit()
+            logger.info(f"Created {discount_percent}% discount coupon {coupon_code} for user {user_id}")
+            return coupon_code
+        except Exception as e:
+            logger.error(f"Error creating discount coupon: {e}")
+            return None
+            
+    def validate_discount_coupon(self, coupon_code: str, user_id: int) -> dict:
+        """Validate a discount coupon and return discount info if valid"""
+        try:
+            self.cur.execute(
+                """SELECT id, discount_percent, expires_at, is_used
+                FROM discount_coupons
+                WHERE coupon_code = ? AND user_id = ?""",
+                (coupon_code, user_id)
+            )
+            
+            result = self.cur.fetchone()
+            if not result:
+                return {"valid": False, "message": "Geçersiz kupon kodu."}
+                
+            coupon_id, discount_percent, expires_at, is_used = result
+            
+            # Check if coupon is already used
+            if is_used:
+                return {"valid": False, "message": "Bu kupon daha önce kullanılmış."}
+                
+            # Check if coupon is expired
+            if expires_at:
+                try:
+                    expiry_date = datetime.strptime(expires_at, '%Y-%m-%d %H:%M:%S')
+                    if expiry_date < datetime.now():
+                        return {"valid": False, "message": "Bu kupon süresi dolmuş."}
+                except:
+                    pass
+            
+            # Valid coupon
+            return {
+                "valid": True, 
+                "discount_percent": discount_percent,
+                "coupon_id": coupon_id,
+                "message": f"Kupon başarıyla uygulandı! %{discount_percent} indirim kazandınız."
+            }
+            
+        except Exception as e:
+            logger.error(f"Error validating coupon: {e}")
+            return {"valid": False, "message": "Kupon doğrulanırken bir hata oluştu."}
+
+    def apply_discount_coupon(self, coupon_id: int) -> bool:
+        """Mark a discount coupon as used"""
+        try:
+            self.cur.execute(
+                "UPDATE discount_coupons SET is_used = 1 WHERE id = ?",
+                (coupon_id,)
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error applying coupon: {e}")
+            return False
+            
+    def get_user_available_coupons(self, user_id: int) -> list:
+        """Get all available (unused) coupons for a user"""
+        try:
+            self.cur.execute(
+                """SELECT coupon_code, discount_percent, source, expires_at
+                FROM discount_coupons
+                WHERE user_id = ? AND is_used = 0 AND (expires_at IS NULL OR expires_at > datetime('now'))
+                ORDER BY discount_percent DESC""",
+                (user_id,)
+            )
+            return self.cur.fetchall()
+        except Exception as e:
+            logger.error(f"Error getting user coupons: {e}")
+            return []

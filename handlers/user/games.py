@@ -20,25 +20,55 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error(f"Mesaj silinirken hata: {e}")
         
         user_id = update.effective_user.id
+        
+        # Kullanıcının günlük kalan oyun hakkını al
         remaining_games = db.get_remaining_daily_games(user_id)
         
+        # Kullanıcının en yüksek skoru ve toplam puanını al
+        user_best = db.get_user_best_score(user_id)
+        user_total = db.get_user_total_score(user_id)
+        
+        # Menü butonlarını hazırla
         keyboard = [
-            [InlineKeyboardButton("🍀 Flappy Weed", callback_data='play_flappy_weed')],
+            [InlineKeyboardButton("🍀 Flappy Weed Oyna", callback_data='play_flappy_weed')],
             [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
             [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
         ]
         
+        # Menü mesajını hazırla
         message = f"""🎮 Oyun Menüsü
 
-🍀 Flappy Weed oyununda yüksek puan yap, indirim kazanmaya hak kazan!
+🍀 Flappy Weed oyununda yüksek puan yap ve ödül kazan!
 
-🎯 Günlük oyun hakkı: {remaining_games}/3
-🏆 500+ puan = %5 indirim
-🏆 1000+ puan = %10 indirim
-🏆 2000+ puan = %15 indirim
+📊 İstatistikleriniz:
+• 🎯 Günlük oyun hakkı: {remaining_games}/3
+• 🥇 En yüksek skorunuz: {user_best}
+• 💰 Toplam puanınız: {user_total}
 
-En yüksek skorlarınla liderlik tablosuna gir ve özel ödüller kazan!"""
+🎁 ÖDÜL SİSTEMİ (Toplam Puana Göre):
+• 200+ Puan = %5 İndirim
+• 500+ Puan = %10 İndirim
+• 1000+ Puan = %15 İndirim
+• 1500+ Puan = %25 İndirim
+• 2000+ Puan = Premium Ürün Hediyesi
+
+🔄 Her oyunda kazandığınız puanlar toplanır ve ödüllere çevrilir!
+📱 Oynamak için 'Flappy Weed Oyna' butonuna tıklayın."""
         
+        if user_total < 200:
+            message += f"\n\n⭐ Sonraki ödül için {200 - user_total} puan daha kazanmalısınız!"
+        elif user_total < 500:
+            message += f"\n\n⭐ Sonraki ödül için {500 - user_total} puan daha kazanmalısınız!"
+        elif user_total < 1000:
+            message += f"\n\n⭐ Sonraki ödül için {1000 - user_total} puan daha kazanmalısınız!"
+        elif user_total < 1500:
+            message += f"\n\n⭐ Sonraki ödül için {1500 - user_total} puan daha kazanmalısınız!"
+        elif user_total < 2000:
+            message += f"\n\n⭐ Sonraki ödül için {2000 - user_total} puan daha kazanmalısınız!"
+        else:
+            message += "\n\n🌟 Tebrikler! En yüksek ödül seviyesine ulaştınız!"
+        
+        # Mesajı gönder
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
@@ -53,7 +83,7 @@ En yüksek skorlarınla liderlik tablosuna gir ve özel ödüller kazan!"""
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
-
+        
 async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Flappy Weed oyununu başlat"""
     user_id = update.effective_user.id
@@ -111,7 +141,7 @@ async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Oyun skorunu kaydet"""
+    """Oyun skorunu kaydet ve toplam puana göre ödül kontrol et"""
     try:
         user_id = update.effective_user.id
         
@@ -134,47 +164,87 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         # Skoru veritabanına kaydet
         if db.save_game_score(user_id, game_session, score):
-            # Skor başarıyla kaydedildi
+            # Toplam skoru hesapla
+            total_score = db.get_user_total_score(user_id)
             
-            # Kupon kazanıldı mı kontrol et
-            discount = 0
-            if score >= 2000:
-                discount = 15
-            elif score >= 1000:
-                discount = 10
-            elif score >= 500:
-                discount = 5
+            # Ödül seviyelerini kontrol et
+            reward_level = check_reward_level(total_score)
+            previous_level = context.user_data.get('reward_level', 0)
+            
+            # Yeni bir ödül seviyesine ulaşıldı mı kontrol et
+            if reward_level > previous_level:
+                context.user_data['reward_level'] = reward_level
                 
-            if discount > 0:
-                # Kupon oluştur
-                coupon_code = db.create_discount_coupon(user_id, discount, f"Flappy Weed {score} puan")
-                
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"🎉 Tebrikler! {score} puan kazandınız ve %{discount} indirim kuponu elde ettiniz!\n\n"
-                         f"🏷️ Kupon kodu: {coupon_code}\n"
-                         f"Bir sonraki alışverişinizde bu kodu kullanabilirsiniz.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                        [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')],
-                        [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')]
-                    ])
-                )
-            else:
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"👏 Oyun tamamlandı! Skorunuz: {score}\n\n"
-                         f"💡 İpucu: 500 puan ve üzeri skorlarda indirim kuponları kazanabilirsiniz!",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                        [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
-                        [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                    ])
-                )
+                # Ödül seviyesine göre indirim kuponu oluştur
+                discount = 0
+                if reward_level == 5:
+                    message = f"🎁 TEBRİKLER! Toplam {total_score} puana ulaştınız ve Premium Ürün kazandınız!"
+                    discount = 100  # Özel işaretleme için
+                elif reward_level == 4:
+                    discount = 25
+                elif reward_level == 3:
+                    discount = 15
+                elif reward_level == 2:
+                    discount = 10
+                elif reward_level == 1:
+                    discount = 5
+                    
+                if discount > 0:
+                    # Kupon oluştur
+                    if discount == 100:
+                        coupon_code = db.create_discount_coupon(user_id, 100, f"Premium Ürün Ödülü - {total_score} puan")
+                        message += f"\n\n🏆 Hediye Kodu: {coupon_code}\nBu kodu Admin'e ileterek premium ürününüzü talep edebilirsiniz!"
+                    else:
+                        coupon_code = db.create_discount_coupon(user_id, discount, f"Toplam {total_score} puan ödülü")
+                        message = f"🎉 Tebrikler! Toplam {total_score} puana ulaştınız ve %{discount} indirim kuponu kazandınız!\n\n🏷️ Kupon kodu: {coupon_code}"
+                    
+                    await context.bot.send_message(
+                        chat_id=user_id,
+                        text=message,
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                            [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')],
+                            [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')]
+                        ])
+                    )
+                    return
+            
+            # Normal oyun tamamlama mesajı gönder
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"👏 Oyun tamamlandı! Bu oyunda {score} puan kazandınız!\n\n"
+                     f"💰 Toplam Biriken Puanınız: {total_score}\n\n"
+                     f"💡 İpucu: Oynamaya devam ederek puanlarınızı toplayın ve özel ödüller kazanın!",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                    [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
+                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                ])
+            )
                 
     except Exception as e:
         logger.error(f"Skor kaydedilirken hata: {e}")
-        # Hatayı kullanıcıya bildirmeden sessizce logla
+def check_reward_level(total_score: int) -> int:
+    """Toplam puana göre ödül seviyesini belirle
+    Seviye 0: 0-199 puan
+    Seviye 1: 200-499 puan
+    Seviye 2: 500-999 puan
+    Seviye 3: 1000-1499 puan
+    Seviye 4: 1500-1999 puan
+    Seviye 5: 2000+ puan
+    """
+    if total_score >= 2000:
+        return 5
+    elif total_score >= 1500:
+        return 4
+    elif total_score >= 1000:
+        return 3
+    elif total_score >= 500:
+        return 2
+    elif total_score >= 200:
+        return 1
+    else:
+        return 0
 
 async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Skor tablosunu göster"""
@@ -183,23 +253,35 @@ async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scores = db.get_top_scores(10)
         user_id = update.effective_user.id
         
-        # Kullanıcının kendi en yüksek skoru
+        # Kullanıcının kendi en yüksek skoru ve toplam skoru
         user_best = db.get_user_best_score(user_id)
+        user_total = db.get_user_total_score(user_id)
         
         if not scores:
             message = "🏆 Skor Tablosu\n\nHenüz kimse oyun oynamamış. İlk skor senin olabilir!"
         else:
-            message = "🏆 Flappy Weed Skor Tablosu - En İyiler\n\n"
+            message = "🏆 Flappy Weed Skor Tablosu - En Yüksek Skorlar\n\n"
             
-            for i, (score_user_id, username, score, date) in enumerate(scores):
+            for i, score_data in enumerate(scores):
+                score_user_id = score_data[0]
+                score = score_data[1]
+                
                 medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else f"{i+1}."
-                display_name = username or f"Kullanıcı {score_user_id}"
+                display_name = f"Kullanıcı {score_user_id}"
                 is_you = " (Sen)" if score_user_id == user_id else ""
                 
-                message += f"{medal} {display_name}{is_you}: {score} puan ({date})\n"
+                message += f"{medal} {display_name}{is_you}: {score} puan\n"
             
-            if user_best and all(user_id != uid for uid, _, _, _ in scores):
+            # Add user's statistics if not in top 10
+            if user_id not in [uid for uid, _, *_ in scores]:
                 message += f"\n🎮 Senin en yüksek skorun: {user_best} puan"
+            
+            message += f"\n\n💰 Toplam Biriken Puanın: {user_total}"
+            
+            # Add rewards information based on total score
+            reward_info = get_reward_info(user_total)
+            if reward_info:
+                message += f"\n\n🎁 {reward_info}"
         
         await update.callback_query.message.edit_text(
             text=message,
@@ -217,3 +299,18 @@ async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
             ]])
         )
+        
+def get_reward_info(total_score: int) -> str:
+    """Get reward information based on total score"""
+    if total_score >= 2000:
+        return "2000+ Puan: Premium Ürün Hediyesi! 🎁"
+    elif total_score >= 1500:
+        return "1500+ Puan: %25 İndirim Kuponu 🏷️"
+    elif total_score >= 1000:
+        return "1000+ Puan: %15 İndirim Kuponu 🏷️"
+    elif total_score >= 500:
+        return "500+ Puan: %10 İndirim Kuponu 🏷️"
+    elif total_score >= 200:
+        return "200+ Puan: %5 İndirim Kuponu 🏷️"
+    else:
+        return f"Sonraki ödül için {200 - total_score} puan daha kazanmalısın"

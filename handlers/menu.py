@@ -65,7 +65,63 @@ async def show_main_menu(update, context, message=None):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Karşılama mesajını göster ve ana menüyü oluştur"""
     try:
-        # Kullanıcı bilgilerini al
+        # Game score handling for /start save_score_session_score
+        if context.args and len(context.args) > 0 and 'save_score_' in context.args[0]:
+            try:
+                # Parse score data from start command
+                parts = context.args[0].split('save_score_')[1].split('_')
+                if len(parts) == 2:
+                    game_session = parts[0]
+                    score = int(parts[1])
+                    user_id = update.effective_user.id
+                    
+                    logger.info(f"Processing game score: session={game_session}, score={score}, user={user_id}")
+                    
+                    # Save score to database
+                    if db.save_game_score(user_id, game_session, score):
+                        # Determine discount based on score
+                        discount = 0
+                        if score >= 2000:
+                            discount = 15
+                        elif score >= 1000:
+                            discount = 10
+                        elif score >= 500:
+                            discount = 5
+                            
+                        if discount > 0:
+                            # Create coupon
+                            coupon_code = db.create_discount_coupon(user_id, discount, f"Flappy Weed {score} puan")
+                            
+                            await context.bot.send_message(
+                                chat_id=user_id,
+                                text=f"🎉 Tebrikler! {score} puan kazandınız ve %{discount} indirim kuponu elde ettiniz!\n\n"
+                                     f"🏷️ Kupon kodu: {coupon_code}\n"
+                                     f"Bir sonraki alışverişinizde bu kodu kullanabilirsiniz.",
+                                reply_markup=InlineKeyboardMarkup([
+                                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                                    [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')],
+                                    [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')]
+                                ])
+                            )
+                        else:
+                            await context.bot.send_message(
+                                chat_id=user_id,
+                                text=f"👏 Oyun tamamlandı! Skorunuz: {score}\n\n"
+                                     f"💡 İpucu: 500 puan ve üzeri skorlarda indirim kuponları kazanabilirsiniz!",
+                                reply_markup=InlineKeyboardMarkup([
+                                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                                    [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
+                                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                                ])
+                            )
+                            
+                        # Return early since we've handled the score already
+                        return ConversationHandler.END
+            except Exception as e:
+                logger.error(f"Error processing game score in start command: {e}")
+                # Continue to regular start flow if there was an error
+        
+        # Regular start command flow
         user_first_name = update.effective_user.first_name if update.effective_user.first_name else "Değerli Müşterimiz"
         user_id = update.effective_user.id
         

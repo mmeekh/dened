@@ -51,7 +51,12 @@ from .user import (
     show_support_menu,
     show_faq
 )
-
+from .user.cart import (
+    prompt_discount_code,
+    handle_discount_code,
+    show_user_coupons,
+    apply_coupon_from_list
+)
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
@@ -391,6 +396,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception as e:
                 logger.error(f"Error processing cart removal: {e}")
                 await update.callback_query.answer("Ürün sepetten kaldırılırken bir hata oluştu")
+            return
+        elif query.data == 'enter_discount_code':
+            return await prompt_discount_code(update, context)
+        elif query.data == 'show_my_coupons':
+            await show_user_coupons(update, context)
+            return
+        elif query.data.startswith('use_coupon_'):
+            await apply_coupon_from_list(update, context)
             return
 
     except Exception as e:
