@@ -1,18 +1,18 @@
-// Character image using your Imgur image
-const characterImage = new Image();
-// Direct link to your Imgur image
-characterImage.src = 'https://imgur.com/a/Utkhunb';
+// Game.html içindeki script bölümünde karakter sınıfı güncellemesi
 
-// Debug logs to verify image loading
-console.log("Character image loading from Imgur...");
+// Karakter görüntüsünü yükle
+const characterImage = new Image();
+// Not: URL'yi düzeltin - aşağıdaki URL sadece bir örnek, doğru URL'nizi kullanın
+characterImage.src = 'https://i.ibb.co/N2rvrqm/flappy-character.png'; 
+
+console.log("Karakter görüntüsü yükleniyor...");
 characterImage.onload = function() {
-    console.log("✅ Character image loaded successfully from Imgur!");
+    console.log("✅ Karakter görüntüsü başarıyla yüklendi!");
 };
 characterImage.onerror = function() {
-    console.error("❌ Character image failed to load from Imgur");
-    // Fallback to a simpler URL in case of error
-    console.log("Trying fallback image URL...");
-    this.src = 'https://imgur.com/a/Utkhunb';
+    console.error("❌ Karakter görüntüsü yüklenemedi!");
+    console.log("URL'yi kontrol edin ve doğru olduğundan emin olun");
+    // Yedek görüntü için varsayılan çizimi kullanacak
 };
 
 class Weed {
@@ -20,13 +20,13 @@ class Weed {
         this.canvas = canvas;
         this.x = 50;
         this.y = canvas.height / 2;
-        this.width = 40;  // Image width
-        this.height = 40; // Image height
+        this.width = 50;  // Görüntü genişliği
+        this.height = 50; // Görüntü yüksekliği
         this.velocity = 0;
         this.gravity = 0.08;
         this.floatOffset = 0;
         this.floatSpeed = 0.05;
-        // Use the preloaded image
+        // Görüntüyü kullan
         this.image = characterImage;
     }
     
@@ -54,24 +54,23 @@ class Weed {
     }
     
     draw(ctx) {
-        ctx.save(); // Save current drawing state
+        ctx.save(); // Mevcut çizim durumunu kaydet
         
-        // Calculate angle for character movement
+        // Karakterin hareketi için açı hesaplama
         let angle = 0;
         if (this.velocity < 0) {
-            // Tilt slightly up when moving upward
-            angle = -Math.PI/15; // About -12 degrees
+            // Yukarı doğru hareket ederken hafif yukarı bak
+            angle = -Math.PI/15; // Yaklaşık -12 derece
         } else if (this.velocity > 1) {
-            angle = Math.PI/15; // About 12 degrees
+            angle = Math.PI/15; // Yaklaşık 12 derece
         }
         
-        // Move to character position and apply rotation
         ctx.translate(this.x, this.y);
         ctx.rotate(angle);
         
-        // Draw the character image with proper checking
+        // Görüntüyü kontrol et ve çiz
         if (this.image.complete && this.image.naturalHeight !== 0) {
-            // If image is loaded successfully, draw it
+            // Görüntü yüklendiyse çiz
             ctx.drawImage(
                 this.image, 
                 -this.width/2, 
@@ -79,23 +78,26 @@ class Weed {
                 this.width, 
                 this.height
             );
+            
+            // Hata ayıklama için (isteğe bağlı) - görüntü sınırlarını göster
+            // ctx.strokeStyle = 'red';
+            // ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
         } else {
-            // Fallback drawing if image fails to load
+            // Görüntü yoksa yedek çizim yap
             this.drawFallbackCharacter(ctx);
         }
         
-        ctx.restore(); // Restore drawing state
+        ctx.restore(); // Çizim durumunu geri yükle
     }
     
-    // Fallback drawing method with more details
+    // Yedek çizim metodu
     drawFallbackCharacter(ctx) {
-        // Main leaf shape (green circle)
+        // Basit karakter çizimi
         ctx.fillStyle = '#44A244';
         ctx.beginPath();
         ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
         ctx.fill();
         
-        // Leaf cross pattern
         ctx.strokeStyle = '#2E7D32';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -107,25 +109,11 @@ class Weed {
         ctx.moveTo(0, -this.height/3);
         ctx.lineTo(0, this.height/3);
         ctx.stroke();
-        
-        // Add some leaf details
-        ctx.fillStyle = '#388E3C';
-        ctx.beginPath();
-        ctx.moveTo(-this.width/2, 0);
-        ctx.lineTo(-this.width/4, -this.height/4);
-        ctx.lineTo(0, 0);
-        ctx.fill();
-        
-        ctx.beginPath();
-        ctx.moveTo(this.width/2, 0);
-        ctx.lineTo(this.width/4, -this.height/4);
-        ctx.lineTo(0, 0);
-        ctx.fill();
     }
     
     jump() {
         this.velocity = -3.8;
-        game.sound.play('jump');
+        playSound('jump'); 
     }
     
     reset() {
