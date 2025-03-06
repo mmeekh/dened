@@ -115,17 +115,17 @@
         const startButton = document.getElementById('start-button');
         const restartButton = document.getElementById('restart-button');
         const submitScoreButton = document.getElementById('submit-score');
-        
+                
         let gameActive = false;
         let score = 0;
-        let gravity = 0.25;
+        let gravity = 0.25; 
         let pipes = [];
-        let pipeWidth = 70; 
-        let pipeGap = 220; 
-        let pipeSpeed = 3.0; 
+        let pipeWidth = 70;
+        let pipeGap = 220;
+        let pipeSpeed = 3.0; // 2.0'dan 3.0'a artırıldı - 1.5x daha hızlı oyun
         let minPipeHeight = 40;
         let nextPipe = 250;
-        let pipeInterval = 100; 
+        let pipeInterval = 100;
         
         // Telegram web uygulama parametrelerini al
         function getUrlParameter(name) {
