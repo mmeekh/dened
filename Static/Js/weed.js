@@ -66,7 +66,6 @@ class Weed {
         
         // First try to draw the image
         if (this.image.complete && this.image.naturalHeight !== 0) {
-            // Image is loaded successfully
             ctx.drawImage(
                 this.image, 
                 -this.width/2, 
