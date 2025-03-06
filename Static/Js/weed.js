@@ -1,7 +1,7 @@
 // Character image using your Imgur image
 const characterImage = new Image();
 // Direct link to your Imgur image
-characterImage.src = 'https://i.imgur.com/SexZx07.png';
+characterImage.src = 'https://imgur.com/a/Utkhunb';
 
 // Debug logs to verify image loading
 console.log("Character image loading from Imgur...");
@@ -12,7 +12,7 @@ characterImage.onerror = function() {
     console.error("❌ Character image failed to load from Imgur");
     // Fallback to a simpler URL in case of error
     console.log("Trying fallback image URL...");
-    this.src = 'https://i.imgur.com/SexZx07.png';
+    this.src = 'https://imgur.com/a/Utkhunb';
 };
 
 class Weed {
@@ -20,13 +20,13 @@ class Weed {
         this.canvas = canvas;
         this.x = 50;
         this.y = canvas.height / 2;
-        this.width = 40;  // Görselin genişliği
-        this.height = 40; // Görselin yüksekliği
+        this.width = 40;  // Image width
+        this.height = 40; // Image height
         this.velocity = 0;
         this.gravity = 0.08;
         this.floatOffset = 0;
         this.floatSpeed = 0.05;
-        // Görselin yüklenmesi için hazırlık
+        // Use the preloaded image
         this.image = characterImage;
     }
     
@@ -54,22 +54,24 @@ class Weed {
     }
     
     draw(ctx) {
-        ctx.save(); // Mevcut çizim durumunu kaydet
+        ctx.save(); // Save current drawing state
         
-        // Karakterin hareketi için açı hesaplama
+        // Calculate angle for character movement
         let angle = 0;
         if (this.velocity < 0) {
-            // Yukarı doğru hareket ederken hafif yukarı bak
-            angle = -Math.PI/15; // Yaklaşık -12 derece
+            // Tilt slightly up when moving upward
+            angle = -Math.PI/15; // About -12 degrees
         } else if (this.velocity > 1) {
-            angle = Math.PI/15; // Yaklaşık 12 derece
+            angle = Math.PI/15; // About 12 degrees
         }
         
+        // Move to character position and apply rotation
         ctx.translate(this.x, this.y);
         ctx.rotate(angle);
         
-        // Draw the character image with error handling
+        // Draw the character image with proper checking
         if (this.image.complete && this.image.naturalHeight !== 0) {
+            // If image is loaded successfully, draw it
             ctx.drawImage(
                 this.image, 
                 -this.width/2, 
@@ -78,21 +80,22 @@ class Weed {
                 this.height
             );
         } else {
-            // Fallback drawing in case image is still loading
+            // Fallback drawing if image fails to load
             this.drawFallbackCharacter(ctx);
         }
         
-        ctx.restore(); // Çizim durumunu geri yükle
+        ctx.restore(); // Restore drawing state
     }
     
-    // Fallback drawing method
+    // Fallback drawing method with more details
     drawFallbackCharacter(ctx) {
-        // Simple character while image loads
+        // Main leaf shape (green circle)
         ctx.fillStyle = '#44A244';
         ctx.beginPath();
         ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
         ctx.fill();
         
+        // Leaf cross pattern
         ctx.strokeStyle = '#2E7D32';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -104,6 +107,20 @@ class Weed {
         ctx.moveTo(0, -this.height/3);
         ctx.lineTo(0, this.height/3);
         ctx.stroke();
+        
+        // Add some leaf details
+        ctx.fillStyle = '#388E3C';
+        ctx.beginPath();
+        ctx.moveTo(-this.width/2, 0);
+        ctx.lineTo(-this.width/4, -this.height/4);
+        ctx.lineTo(0, 0);
+        ctx.fill();
+        
+        ctx.beginPath();
+        ctx.moveTo(this.width/2, 0);
+        ctx.lineTo(this.width/4, -this.height/4);
+        ctx.lineTo(0, 0);
+        ctx.fill();
     }
     
     jump() {

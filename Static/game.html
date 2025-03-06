@@ -157,6 +157,21 @@
 
     <!-- Game Script - All code inline for immediate effect -->
     <script>
+// Preload the character image
+const characterImage = new Image();
+characterImage.src = 'https://i.imgur.com/SexZx07.png';
+console.log("Loading character image from Imgur...");
+
+// Add event listeners for image loading
+characterImage.onload = function() {
+    console.log("✅ Character image loaded successfully!");
+};
+characterImage.onerror = function() {
+    console.error("❌ Character image failed to load from Imgur");
+    // If the first URL fails, try a backup
+    this.src = 'https://i.imgur.com/SexZx07.png'; // Same URL as backup in this case
+};
+
 // Weed character class
 class Weed {
     constructor(canvas) {
@@ -164,11 +179,12 @@ class Weed {
         this.x = 50;
         this.y = canvas.height / 2;
         this.width = 40;
-        this.height = 30;
+        this.height = 40; // Match the image's aspect ratio better
         this.velocity = 0;
         this.gravity = 0.08;
         this.floatOffset = 0;
         this.floatSpeed = 0.05;
+        this.image = characterImage;
     }
     
     update() {
@@ -208,7 +224,26 @@ class Weed {
         ctx.translate(this.x, this.y);
         ctx.rotate(angle);
         
-        // Draw the weed character with better visuals
+        // Check if image is loaded properly
+        if (this.image.complete && this.image.naturalHeight !== 0) {
+            // Draw the image
+            ctx.drawImage(
+                this.image,
+                -this.width/2,
+                -this.height/2,
+                this.width,
+                this.height
+            );
+        } else {
+            // Fallback to drawn character if image is not loaded
+            this.drawFallbackCharacter(ctx);
+        }
+        
+        ctx.restore(); // Restore the original state
+    }
+    
+    // Fallback drawing method
+    drawFallbackCharacter(ctx) {
         // Main leaf (base)
         ctx.fillStyle = '#44A244';
         ctx.beginPath();
@@ -267,8 +302,6 @@ class Weed {
         ctx.beginPath();
         ctx.arc(0, this.height/10, this.width/6, 0.2, Math.PI - 0.2);
         ctx.stroke();
-        
-        ctx.restore(); // Restore the original state
     }
     
     jump() {
@@ -564,7 +597,6 @@ startButton.addEventListener('click', startGame);
 restartButton.addEventListener('click', startGame);
 submitScoreButton.addEventListener('click', saveScore);
 
-// Initial screen
 drawBackground();
 weed.draw(ctx);
     </script>
