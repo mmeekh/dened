@@ -8,9 +8,9 @@ class Game {
         this.score = 0;
         this.gameActive = false;
         this.pipes = [];
-        this.pipeSpeed = 3.0;
-        this.pipeInterval = 100;
-        this.nextPipe = 100;
+        this.pipeSpeed = 1.8;  // Reduced from 3.0 to 1.8
+        this.pipeInterval = 140;  // Increased from 100 to 140
+        this.nextPipe = 140;  // Adjusted to match initial interval
         this.gameStartTime = 0;
         this.elapsedFrames = 0;
         this.highScore = localStorage.getItem('highScore') || 0;
@@ -133,7 +133,7 @@ class Game {
             
             // Make pipes come slightly faster as the game progresses
             // but not too fast
-            this.pipeInterval = Math.max(80, 100 - Math.floor(this.elapsedFrames / 500));
+            this.pipeInterval = Math.max(120, 140 - Math.floor(this.elapsedFrames / 800));
             this.nextPipe = this.pipeInterval;
         }
         

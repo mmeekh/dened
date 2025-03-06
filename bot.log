@@ -10334,3 +10334,39 @@ telegram.error.TimedOut: Timed out
 2025-03-06 13:12:08,532 - telegram.ext.Application - INFO - Application.stop() complete
 2025-03-06 13:12:08,542 - database.core - INFO - Database connection closed
 2025-03-06 13:12:08,542 - __main__ - INFO - Database connection closed
+2025-03-06 13:20:54,988 - database.core - INFO - Connected to database: shop.db
+2025-03-06 13:20:54,988 - database.core - INFO - Game-related database tables created successfully
+2025-03-06 13:20:54,989 - __main__ - INFO - Starting bot initialization...
+2025-03-06 13:20:54,989 - __main__ - INFO - Products directory ensured at products
+2025-03-06 13:20:54,989 - __main__ - INFO - Locations directory ensured at locations
+2025-03-06 13:20:55,297 - __main__ - INFO - Bot application initialized
+2025-03-06 13:20:55,298 - __main__ - INFO - Handlers added to application
+2025-03-06 13:20:55,299 - __main__ - INFO - Starting bot polling...
+2025-03-06 13:20:55,595 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-06 13:20:55,679 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-06 13:20:55,681 - telegram.ext.Application - INFO - Application started
+2025-03-06 13:21:02,226 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:21:02,504 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:21:02,666 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-06 13:21:03,529 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:21:03,652 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:21:03,827 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-06 13:21:13,671 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:21:16,860 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:21:16,863 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-03-06 13:21:16,863 - telegram.ext.Application - INFO - Application.stop() complete
+2025-03-06 13:21:16,865 - database.core - INFO - Database connection closed
+2025-03-06 13:21:16,867 - __main__ - INFO - Database connection closed
+2025-03-06 13:23:30,048 - database.core - INFO - Connected to database: shop.db
+2025-03-06 13:23:30,049 - database.core - INFO - Game-related database tables created successfully
+2025-03-06 13:23:30,049 - __main__ - INFO - Starting bot initialization...
+2025-03-06 13:23:30,050 - __main__ - INFO - Products directory ensured at products
+2025-03-06 13:23:30,050 - __main__ - INFO - Locations directory ensured at locations
+2025-03-06 13:23:30,440 - __main__ - INFO - Bot application initialized
+2025-03-06 13:23:30,442 - __main__ - INFO - Handlers added to application
+2025-03-06 13:23:30,442 - __main__ - INFO - Starting bot polling...
+2025-03-06 13:23:30,757 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-06 13:23:30,826 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-06 13:23:30,828 - telegram.ext.Application - INFO - Application started
+2025-03-06 13:23:41,020 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:23:51,085 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"

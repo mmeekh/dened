@@ -3,7 +3,7 @@ class Pipe {
         this.canvas = canvas;
         this.x = x;
         this.width = 70;
-        this.gap = 220;
+        this.gap = 240;  // Increased gap between pipes
         this.passed = false;
         
         // Random height for top pipe between 40 and canvas height - gap - 40
