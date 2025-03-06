@@ -341,10 +341,10 @@ let gravity = 0.08;
 let pipes = [];
 let pipeWidth = 70;
 let pipeGap = 240;
-let pipeSpeed = 2.5;     // INCREASED TO 2.5
+let pipeSpeed = 3.2;     // INCREASED TO 3.2 for faster gameplay
 let minPipeHeight = 40;
-let nextPipe = 50;       // REDUCED TO 50
-let pipeInterval = 50;   // REDUCED TO 50
+let nextPipe = 35;       // REDUCED TO 35 for closer pipes
+let pipeInterval = 35;   // REDUCED TO 35 for closer pipes
 
 // Weed character
 const weed = new Weed(canvas);
@@ -445,7 +445,7 @@ function startGame() {
     gameActive = true;
     score = 0;
     pipes = [];
-    nextPipe = 50; // Start with first pipe sooner
+    nextPipe = 35; // Start with first pipe sooner
     
     weed.reset();
     scoreDisplay.textContent = score;
