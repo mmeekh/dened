@@ -1,6 +1,6 @@
 // Karakter görseli
 const characterImage = new Image();
-characterImage.src = 'Static/assets/flappy-character.png';
+characterImage.src = 'Static/Assets/flappy-character.png'; // Capital "A" in Assets
 
 class Weed {
     constructor(canvas) {
@@ -15,6 +15,17 @@ class Weed {
         this.floatSpeed = 0.05;
         // Görselin yüklenmesi için hazırlık
         this.image = characterImage;
+        
+        // Add error handling for image
+        this.imageLoaded = false;
+        this.image.onload = () => {
+            console.log("Character image loaded successfully!");
+            this.imageLoaded = true;
+        };
+        this.image.onerror = () => {
+            console.error("Failed to load character image:", this.image.src);
+            this.imageLoaded = false;
+        };
     }
     
     update() {
@@ -55,13 +66,34 @@ class Weed {
         ctx.translate(this.x, this.y);
         ctx.rotate(angle);
         
-        ctx.drawImage(
-            this.image, 
-            -this.width/2, 
-            -this.height/2, 
-            this.width, 
-            this.height
-        );
+        if (this.imageLoaded) {
+            // If image loaded successfully, draw the image
+            ctx.drawImage(
+                this.image, 
+                -this.width/2, 
+                -this.height/2, 
+                this.width, 
+                this.height
+            );
+        } else {
+            // Fallback: Draw a simple weed if image fails to load
+            ctx.fillStyle = '#44A244';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.width/2, this.height/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#2E7D32';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-this.width/3, 0);
+            ctx.lineTo(this.width/3, 0);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.moveTo(0, -this.height/3);
+            ctx.lineTo(0, this.height/3);
+            ctx.stroke();
+        }
         
         ctx.restore(); // Çizim durumunu geri yükle
     }
