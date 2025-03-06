@@ -355,16 +355,18 @@ class Pipe {
     }
     
     checkCollision(weed) {
-        const hitboxReduction = 5;
-        const weedLeft = weed.x - weed.width/2 + hitboxReduction;
-        const weedRight = weed.x + weed.width/2 - hitboxReduction;
-        const weedTop = weed.y - weed.height/2 + hitboxReduction;
-        const weedBottom = weed.y + weed.height/2 - hitboxReduction;
+        // Weed'in hitbox'ını hesaba kat
+        const weedLeft = weed.x - weed.width/2 + weed.hitboxReduction;
+        const weedRight = weed.x + weed.width/2 - weed.hitboxReduction;
+        const weedTop = weed.y - weed.height/2 + weed.hitboxReduction;
+        const weedBottom = weed.y + weed.height/2 - weed.hitboxReduction;
         
+        // Üst boru ile çarpışma kontrolü
         if (weedRight > this.x && weedLeft < this.x + this.width && weedTop < this.topHeight) {
             return true;
         }
         
+        // Alt boru ile çarpışma kontrolü
         if (weedRight > this.x && weedLeft < this.x + this.width && weedBottom > this.bottomY) {
             return true;
         }
