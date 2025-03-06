@@ -90,7 +90,7 @@ async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         game_session = update.callback_query.data.split('_')[2]
         
-        game_url = f"https://sanemdens.github.io/-random-game-repo/game.html?session={game_session}"
+        game_url = f"https://mmeekh.github.io/dened/Static/game.html?session={game_session}"
         
         # Mesajı düzenle ve oyun bağlantısı gönder
         await update.callback_query.message.edit_text(
