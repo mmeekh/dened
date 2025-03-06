@@ -396,8 +396,7 @@
                     alert("Skorunuz kaydedildi!");
                 } else {
                     // Telegram WebApp API yoksa URL ile yönlendir
-                    window.location.href = `https://t.me/your_bot_name?start=save_score_${gameSession}_${score}`;
-                }
+                    window.location.href = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;                }
             } catch (e) {
                 console.error("Skor kaydedilirken hata:", e);
                 alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
