@@ -7,6 +7,7 @@ from database import Database
 from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
+from .user.games import show_games_menu, play_flappy_weed, start_flappy_game, show_leaderboard, handle_game_score
 
 from .admin import (
     manage_products,

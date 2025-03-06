@@ -24,7 +24,7 @@ __all__ = [
     'show_qr_code',
     'handle_purchase_request',
     'show_support_menu',
-    'show_faq'
+    'show_faq',
     'show_games_menu',
     'play_flappy_weed',
     'start_flappy_game',

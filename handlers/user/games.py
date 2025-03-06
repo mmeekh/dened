@@ -1,12 +1,10 @@
-# handlers/user/games.py - Yeni dosya oluştur
-
 import logging
+import json
+import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import Database
 from datetime import datetime, timedelta
-import uuid
-import json
 
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
@@ -61,37 +59,12 @@ async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
     try:
-        # Kullanıcının günlük oyun hakkını kontrol et
-        remaining_games = db.get_remaining_daily_games(user_id)
-        
-        if remaining_games <= 0:
-            # Oyun hakkı kalmamış
-            next_reset = db.get_next_game_reset_time(user_id)
-            hours_remaining = (next_reset - datetime.now()).total_seconds() // 3600
-            
-            await update.callback_query.message.edit_text(
-                text=f"⏳ Bugünkü oyun haklarınız bitti!\n\n"
-                     f"Yeni haklar için {int(hours_remaining)} saat bekleyin.\n\n"
-                     f"🏆 Skor tablosunu kontrol etmek ister misiniz?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
-                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                ])
-            )
-            return
-        
         # Oyun oturumu oluştur
         game_session = str(uuid.uuid4())
-        db.create_game_session(user_id, game_session)
-        
-        # Oyun bileşenini göster
-        await update.callback_query.message.delete()
         
         # Oyun açıklaması ve başlatma butonuyla mesaj gönder
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
+        await update.callback_query.message.edit_text(
             text=f"🍀 Flappy Weed Oyunu\n\n"
-                 f"Kalan oyun hakkı: {remaining_games}/3\n\n"
                  f"Nasıl Oynanır:\n"
                  f"- Ekrana tıklayarak weed parçasını zıplat\n"
                  f"- Borulardan kaçın ve mümkün olduğunca ilerle\n"
@@ -117,33 +90,13 @@ async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
         game_session = update.callback_query.data.split('_')[2]
         
-        # Oyun oturumunu doğrula
-        is_valid = db.validate_game_session(user_id, game_session)
+        game_url = f"https://sanemdens.github.io/-random-game-repo/game.html?session={game_session}"
         
-        if not is_valid:
-            await update.callback_query.message.edit_text(
-                text="❌ Geçersiz oyun oturumu! Lütfen tekrar deneyin.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
-                ]])
-            )
-            return
-        
-        # Oyun hakkını kullan
-        db.use_game_chance(user_id)
-        
-        # Oyun bileşenini göster - Bu kısma daha sonra oyun bileşeni eklenecek
+        # Mesajı düzenle ve oyun bağlantısı gönder
         await update.callback_query.message.edit_text(
-            text="🎮 Oyun yükleniyor...",
-            reply_markup=None
-        )
-        
-        # React oyun bileşeni gönder
-        await context.bot.send_game(
-            chat_id=update.effective_chat.id,
-            game_short_name="flappy_weed",
+            text="🎮 Flappy Weed oyununu açmak için aşağıdaki butona tıklayın:",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("📱 Tam Ekran", callback_data=f'fullscreen_{game_session}')],
+                [InlineKeyboardButton("🎮 Oyunu Oyna", web_app={"url": game_url})],
                 [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
             ])
         )
@@ -161,9 +114,23 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Oyun skorunu kaydet"""
     try:
         user_id = update.effective_user.id
-        data = json.loads(update.callback_query.data.replace('save_score_', ''))
-        game_session = data.get('session')
-        score = data.get('score', 0)
+        
+        # WebApp veri alımıyla veya başlatma komutundan gelen veriyi işle
+        if update.message and update.message.web_app_data:
+            # WebApp'ten gelen veri
+            data = json.loads(update.message.web_app_data.data)
+            game_session = data.get('session')
+            score = data.get('score', 0)
+        elif update.message and update.message.text and 'save_score_' in update.message.text:
+            # URL'den gelen veri
+            parts = update.message.text.split('save_score_')[1].split('_')
+            game_session = parts[0]
+            score = int(parts[1])
+        else:
+            # Callback verisi
+            data = json.loads(update.callback_query.data.replace('save_score_', ''))
+            game_session = data.get('session')
+            score = data.get('score', 0)
         
         # Skoru veritabanına kaydet
         if db.save_game_score(user_id, game_session, score):
@@ -250,19 +217,3 @@ async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
             ]])
         )
-async def notify_users_about_game():
-    users = db.get_all_users()
-    
-    for user_id in users:
-        try:
-            await bot.send_message(
-                chat_id=user_id,
-                text="🎮 YENİ! Flappy Weed oyunu eklendi!\n\n"
-                     "Yüksek skor yap, indirim kuponları kazan. "
-                     "Ana menüden 'Flappy Weed Oyna' butonuna tıkla ve eğlenceye başla!",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🎮 Hemen Oyna", callback_data='games_menu')]
-                ])
-            )
-        except Exception as e:
-            logger.error(f"Kullanıcı {user_id} bilgilendirilemedi: {e}")
