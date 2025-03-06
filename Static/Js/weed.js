@@ -1,3 +1,6 @@
+// This needs to be included directly in the HTML file
+
+// Weed character class
 class Weed {
     constructor(canvas) {
         this.canvas = canvas;
