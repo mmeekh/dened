@@ -124,7 +124,7 @@
         let pipeGap = 220;
         let pipeSpeed = 3.0; // 2.0'dan 3.0'a artırıldı - 1.5x daha hızlı oyun
         let minPipeHeight = 40;
-        let nextPipe = 250;
+        let nextPipe = 100;
         let pipeInterval = 100;
         
         // Telegram web uygulama parametrelerini al
@@ -360,7 +360,7 @@
             gameActive = true;
             score = 0;
             pipes = [];
-            nextPipe = 250; // İlk boru çok geç gelsin
+            nextPipe = 100; // 250'den 100'e düşürüldü - ilk boru daha erken gelecek
             
             weed.reset();
             scoreDisplay.textContent = score;
