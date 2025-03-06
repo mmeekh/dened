@@ -10297,3 +10297,40 @@ telegram.error.TimedOut: Timed out
 2025-03-06 12:18:42,015 - telegram.ext.Application - INFO - Application.stop() complete
 2025-03-06 12:18:42,016 - database.core - INFO - Database connection closed
 2025-03-06 12:18:42,016 - __main__ - INFO - Database connection closed
+2025-03-06 13:11:33,384 - database.core - INFO - Connected to database: shop.db
+2025-03-06 13:11:33,385 - database.core - INFO - Game-related database tables created successfully
+2025-03-06 13:11:33,386 - __main__ - INFO - Starting bot initialization...
+2025-03-06 13:11:33,386 - __main__ - INFO - Products directory ensured at products
+2025-03-06 13:11:33,386 - __main__ - INFO - Locations directory ensured at locations
+2025-03-06 13:11:33,699 - __main__ - INFO - Bot application initialized
+2025-03-06 13:11:33,701 - __main__ - INFO - Handlers added to application
+2025-03-06 13:11:33,701 - __main__ - INFO - Starting bot polling...
+2025-03-06 13:11:33,921 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-06 13:11:33,990 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-06 13:11:33,993 - telegram.ext.Application - INFO - Application started
+2025-03-06 13:11:42,508 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:11:42,509 - handlers.menu - INFO - Processing game score: session=50cdcae5-8657-4306-b0e4-f788c9abe867, score=0, user=1094377450
+2025-03-06 13:11:42,513 - database.core - INFO - Saved score 0 for user 1094377450, session 50cdcae5-8657-4306-b0e4-f788c9abe867
+2025-03-06 13:11:42,795 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-06 13:11:46,257 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:11:46,364 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:11:46,530 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-06 13:11:49,267 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:11:49,373 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:11:49,560 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-06 13:11:53,046 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:11:53,047 - handlers.menu - INFO - Processing game score: session=9af8682e-f9ea-4f1a-94e6-0ead5d55288f, score=0, user=1094377450
+2025-03-06 13:11:53,050 - database.core - INFO - Saved score 0 for user 1094377450, session 9af8682e-f9ea-4f1a-94e6-0ead5d55288f
+2025-03-06 13:11:53,168 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-06 13:11:56,710 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:11:56,808 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:11:56,940 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-06 13:12:03,866 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:12:04,151 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-06 13:12:04,269 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-06 13:12:04,427 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-06 13:12:08,530 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-06 13:12:08,531 - telegram.ext.Application - INFO - Application is stopping. This might take a moment.
+2025-03-06 13:12:08,532 - telegram.ext.Application - INFO - Application.stop() complete
+2025-03-06 13:12:08,542 - database.core - INFO - Database connection closed
+2025-03-06 13:12:08,542 - __main__ - INFO - Database connection closed

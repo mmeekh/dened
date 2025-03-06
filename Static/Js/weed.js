@@ -6,7 +6,7 @@ class Weed {
         this.width = 40;
         this.height = 30;
         this.velocity = 0;
-        this.gravity = 0.25;
+        this.gravity = 0.15;  // Reduced gravity for slower falling
         this.floatOffset = 0;
         this.floatSpeed = 0.05;
         this.rotation = 0;  // Current rotation angle in radians
@@ -17,8 +17,8 @@ class Weed {
         this.velocity += this.gravity;
         
         // Limit fall speed
-        if (this.velocity > 5) {
-            this.velocity = 5;
+        if (this.velocity > 3.5) {
+            this.velocity = 3.5;
         }
         
         // Add slight floating effect
@@ -109,7 +109,7 @@ class Weed {
     }
     
     jump() {
-        this.velocity = -5.5;
+        this.velocity = -6.0;  // Stronger jump force
         // Play jump sound
         game.sound.play('jump');
     }
