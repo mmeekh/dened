@@ -118,14 +118,14 @@
         
         let gameActive = false;
         let score = 0;
-        let gravity = 0.05;
+        let gravity = 0.25;
         let pipes = [];
-        let pipeWidth = 70; // Boruları biraz daha ince yap
-        let pipeGap = 220; // Çok daha geniş boru aralığı
-        let pipeSpeed = 1.0; // Çok daha yavaş boru hareketi
-        let minPipeHeight = 40; // Daha kısa borular
-        let nextPipe = 250; // İlk boru çok geç gelsin
-        let pipeInterval = 180; // Borular arası yatay mesafe - arttırıldı!
+        let pipeWidth = 70; 
+        let pipeGap = 220; 
+        let pipeSpeed = 2.0; 
+        let minPipeHeight = 40;
+        let nextPipe = 250;
+        let pipeInterval = 150; 
         
         // Telegram web uygulama parametrelerini al
         function getUrlParameter(name) {
@@ -148,17 +148,15 @@
             floatSpeed: 0.05, // Yüzme hızı
             
             update: function() {
-                // Uygula yerçekimini ama çok hafif
                 this.velocity += gravity;
                 
                 // Hafif yüzme hareketi ekle
                 this.floatOffset += this.floatSpeed;
-                let floatEffect = Math.sin(this.floatOffset) * 0.5;
+                let floatEffect = Math.sin(this.floatOffset) * 0.3;
                 this.y += this.velocity + floatEffect;
                 
-                // Düşme hızını sınırla - terminal hız
-                if (this.velocity > 3) {
-                    this.velocity = 3;
+                if (this.velocity > 5) {
+                    this.velocity = 5;
                 }
                 
                 // Zemin ve tavan kontrolleri
@@ -175,7 +173,7 @@
             },
             
             jump: function() {
-                this.velocity = -3; // Çok daha yumuşak zıplama
+                this.velocity = -5.5; // Çok daha yumuşak zıplama
             },
             
             reset: function() {
