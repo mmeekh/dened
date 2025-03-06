@@ -121,7 +121,7 @@
         let gravity = 0.05;
         let pipes = [];
         let pipeWidth = 70; // Boruları biraz daha ince yap
-        let pipeGap = 550; // Çok daha geniş boru aralığı
+        let pipeGap = 220; // Çok daha geniş boru aralığı
         let pipeSpeed = 1.0; // Çok daha yavaş boru hareketi
         let minPipeHeight = 40; // Daha kısa borular
         let nextPipe = 250; // İlk boru çok geç gelsin
@@ -396,7 +396,8 @@
                     alert("Skorunuz kaydedildi!");
                 } else {
                     // Telegram WebApp API yoksa URL ile yönlendir
-                    window.location.href = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;                }
+                    window.location.href = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
+                }
             } catch (e) {
                 console.error("Skor kaydedilirken hata:", e);
                 alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
