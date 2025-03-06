@@ -125,6 +125,7 @@
         let pipeSpeed = 1.0; // Çok daha yavaş boru hareketi
         let minPipeHeight = 40; // Daha kısa borular
         let nextPipe = 250; // İlk boru çok geç gelsin
+        let pipeInterval = 180; // Borular arası yatay mesafe - arttırıldı!
         
         // Telegram web uygulama parametrelerini al
         function getUrlParameter(name) {
@@ -318,7 +319,7 @@
             nextPipe--;
             if (nextPipe <= 0) {
                 pipes.push(createPipe());
-                nextPipe = 200;
+                nextPipe = pipeInterval; // Değiştirildi - daha geniş borular arası mesafe
             }
             
             // Boruları çiz ve güncelle
