@@ -1,9 +1,7 @@
-// Game.html içindeki script bölümünde karakter sınıfı güncellemesi
-
 // Karakter görüntüsünü yükle
 const characterImage = new Image();
-// Not: URL'yi düzeltin - aşağıdaki URL sadece bir örnek, doğru URL'nizi kullanın
-characterImage.src = 'https://i.ibb.co/N2rvrqm/flappy-character.png'; 
+// Imgur'dan doğrudan görüntü URL'si
+characterImage.src = 'https://i.imgur.com/yK80ovd.png'; 
 
 console.log("Karakter görüntüsü yükleniyor...");
 characterImage.onload = function() {
@@ -11,8 +9,12 @@ characterImage.onload = function() {
 };
 characterImage.onerror = function() {
     console.error("❌ Karakter görüntüsü yüklenemedi!");
-    console.log("URL'yi kontrol edin ve doğru olduğundan emin olun");
-    // Yedek görüntü için varsayılan çizimi kullanacak
+    console.log("URL formatını kontrol edin, eğer .png çalışmazsa .jpg deneyin");
+    // Görüntü yüklenemezse .jpg formatını dene
+    this.src = 'https://i.imgur.com/yK80ovd.jpg';
+    this.onerror = function() {
+        console.error("İkinci görüntü formatı da yüklenemedi!");
+    };
 };
 
 class Weed {
@@ -20,13 +22,20 @@ class Weed {
         this.canvas = canvas;
         this.x = 50;
         this.y = canvas.height / 2;
-        this.width = 50;  // Görüntü genişliği
-        this.height = 50; // Görüntü yüksekliği
+        
+        // 1024x1024 görüntü için uygun boyut ayarları
+        this.width = 40;   // Daha küçük görünmesi için
+        this.height = 40;  // Kare oranını koruyoruz (1:1)
+        
+        // Çarpışma kutusu (hitbox) görüntüden biraz daha küçük olmalı
+        this.hitboxReduction = 10;
+        
         this.velocity = 0;
         this.gravity = 0.08;
         this.floatOffset = 0;
         this.floatSpeed = 0.05;
-        // Görüntüyü kullan
+        
+        // Yukarıda tanımlanan görüntüyü kullanın
         this.image = characterImage;
     }
     
@@ -54,15 +63,14 @@ class Weed {
     }
     
     draw(ctx) {
-        ctx.save(); // Mevcut çizim durumunu kaydet
+        ctx.save();
         
         // Karakterin hareketi için açı hesaplama
         let angle = 0;
         if (this.velocity < 0) {
-            // Yukarı doğru hareket ederken hafif yukarı bak
-            angle = -Math.PI/15; // Yaklaşık -12 derece
+            angle = -Math.PI/15; // Yukarı hareket ederken yukarı bak
         } else if (this.velocity > 1) {
-            angle = Math.PI/15; // Yaklaşık 12 derece
+            angle = Math.PI/15;  // Aşağı hareket ederken aşağı bak
         }
         
         ctx.translate(this.x, this.y);
@@ -79,15 +87,22 @@ class Weed {
                 this.height
             );
             
-            // Hata ayıklama için (isteğe bağlı) - görüntü sınırlarını göster
-            // ctx.strokeStyle = 'red';
-            // ctx.strokeRect(-this.width/2, -this.height/2, this.width, this.height);
+            // Hata ayıklama: çarpışma kutusunu göster (geliştirme sırasında açabilirsiniz)
+            /*
+            ctx.strokeStyle = 'red';
+            ctx.strokeRect(
+                -this.width/2 + this.hitboxReduction, 
+                -this.height/2 + this.hitboxReduction, 
+                this.width - this.hitboxReduction*2, 
+                this.height - this.hitboxReduction*2
+            );
+            */
         } else {
             // Görüntü yoksa yedek çizim yap
             this.drawFallbackCharacter(ctx);
         }
         
-        ctx.restore(); // Çizim durumunu geri yükle
+        ctx.restore();
     }
     
     // Yedek çizim metodu
@@ -113,7 +128,8 @@ class Weed {
     
     jump() {
         this.velocity = -3.8;
-        playSound('jump'); 
+        playSound('jump'); // Inline script kullanıyorsanız
+        // Eğer ayrı dosyalar kullanıyorsanız: game.sound.play('jump');
     }
     
     reset() {
