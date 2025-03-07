@@ -2729,3 +2729,4 @@ venv/share/man/man1/qr.1
 shop.db
 *.log
 *.db
+*.log
