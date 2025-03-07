@@ -327,7 +327,7 @@ function playSound(sound) {
         jumpSound.play().catch(e => console.log('Sound play error:', e));
     } else if (sound === 'score') {
         scoreSound.currentTime = 0;
-        scoreSound.volume = 0.6; // Ses seviyesi %60'a düşürüldü (-%40)
+        scoreSound.volume = 0.2; // Ses seviyesi %60'a düşürüldü (-%40)
         scoreSound.play().catch(e => console.log('Sound play error:', e));
     } else if (sound === 'death') {
         gameOverSound.currentTime = 0;
