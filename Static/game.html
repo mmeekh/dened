@@ -477,35 +477,22 @@ function saveScore() {
     
     console.log("Saving score:", score, "Session:", gameSession);
     
-    // Create the command text
-    const commandText = `/start save_score_${gameSession}_${score}`;
+    // Create the redirect URL
+    const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
     
-    // Change the game over screen content
-    const gameOverScreen = document.querySelector('.game-over');
+    // Hide the submit button to prevent multiple clicks
+    submitScoreButton.style.display = 'none';
     
-    gameOverScreen.innerHTML = `
-        <h2>Oyun Bitti!</h2>
-        <p class="score-info">Skorun: <span id="final-score">${score}</span></p>
-        <p class="score-info">En Yüksek Skorun: <span id="high-score">${highScore}</span></p>
-        <p style="margin-top: 15px;">Skoru kaydetmek için:</p>
-        <button id="copy-command" style="background-color: #4CAF50; border: none; color: white; padding: 12px 20px; text-align: center; font-size: 16px; margin: 10px 2px; cursor: pointer; border-radius: 10px;">Komutu Kopyala</button>
-        <p id="copy-message" style="display: none; color: #4CAF50; font-weight: bold;">Komut kopyalandı! Telegram botuna yapıştırın.</p>
-        <button id="open-telegram" style="background-color: #0088cc; border: none; color: white; padding: 12px 20px; text-align: center; font-size: 16px; margin: 10px 2px; cursor: pointer; border-radius: 10px;">Telegram'ı Aç</button>
-        <button id="restart-button" style="margin-top: 15px;">Tekrar Oyna</button>
-    `;
-    
-    // Add event listeners
-    document.getElementById('copy-command').addEventListener('click', function() {
-        navigator.clipboard.writeText(commandText).then(function() {
-            document.getElementById('copy-message').style.display = 'block';
-        });
-    });
-    
-    document.getElementById('open-telegram').addEventListener('click', function() {
-        window.open('https://t.me/Yesiltobacco_bot', '_blank');
-    });
-    
-    document.getElementById('restart-button').addEventListener('click', startGame);
+    try {
+        // Try to use location.replace instead of location.href
+        // This might reduce browser warnings in some cases
+        window.location.replace(redirectUrl);
+    } catch (e) {
+        console.error("Redirect error:", e);
+        
+        // Fallback to normal redirect
+        window.location.href = redirectUrl;
+    }
 }
 
 // Event listeners
