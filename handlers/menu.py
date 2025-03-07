@@ -89,11 +89,10 @@ async def show_main_menu(update, context, message=None):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Karşılama mesajını göster ve ana menüyü oluştur"""
     try:
-        # Game score handling for /start save_score_session_score
         if context.args and len(context.args) > 0 and 'save_score_' in context.args[0]:
             try:
-                # Parse score data from start command
-                parts = context.args[0].split('save_score_')[1].split('_')
+                # Parse score data using rsplit to handle session IDs with underscores
+                parts = context.args[0].split('save_score_')[1].rsplit('_', 1)
                 if len(parts) == 2:
                     game_session = parts[0]
                     score = int(parts[1])

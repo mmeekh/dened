@@ -168,8 +168,8 @@ class Weed {
         this.canvas = canvas;
         this.x = 50;
         this.y = canvas.height / 2;
-        this.width = 120;  // Resmin genişliği (artırıldı)
-        this.height = 120; // Resmin yüksekliği (artırıldı)
+        this.width = 80;  // Resmin genişliği (artırıldı)
+        this.height = 80; // Resmin yüksekliği (artırıldı)
         this.velocity = 0;
         this.gravity = 0.1; // Yer çekimi
         this.floatOffset = 0;
@@ -471,45 +471,41 @@ function gameOver() {
 }
 
 function saveScore() {
-    const data = {
-        session: gameSession,
-        score: score
-    };
-
+    // Get the session parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameSession = urlParams.get('session') || 'default';
+    
     console.log("Saving score:", score, "Session:", gameSession);
-
-    try {
-        // Telegram WebApp API kullanılabilir mi kontrol et
-        if (window.Telegram && window.Telegram.WebApp) {
-            console.log("Using Telegram WebApp API");
-            window.Telegram.WebApp.sendData(JSON.stringify(data));
-            alert("Skorunuz kaydedildi!");
-        } else {
-            console.log("Fallback to URL redirect");
-            
-            const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
-            console.log("Redirecting to:", redirectUrl);
-            
-            // URL'ye yönlendirmeden önce bir mesaj göster
-            alert("Skorunuzu kaydetmek için Telegram botuna yönlendiriliyorsunuz...");
-            
-            // Küçük bir gecikme ekleyelim ki kullanıcı mesajı görsün
-            setTimeout(() => {
-                window.location.href = redirectUrl;
-            }, 1000);
-        }
-    } catch (e) {
-        console.error("Skor kaydedilirken hata:", e);
-        
-        // Hata durumunda da URL yönlendirmesini deneyelim
-        try {
-            alert("Skor kaydederken bir hata oluştu. Alternatif yöntem deneniyor...");
-            const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
-            window.location.href = redirectUrl;
-        } catch (e2) {
-            alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
-        }
-    }
+    
+    // Create the command text
+    const commandText = `/start save_score_${gameSession}_${score}`;
+    
+    // Change the game over screen content
+    const gameOverScreen = document.querySelector('.game-over');
+    
+    gameOverScreen.innerHTML = `
+        <h2>Oyun Bitti!</h2>
+        <p class="score-info">Skorun: <span id="final-score">${score}</span></p>
+        <p class="score-info">En Yüksek Skorun: <span id="high-score">${highScore}</span></p>
+        <p style="margin-top: 15px;">Skoru kaydetmek için:</p>
+        <button id="copy-command" style="background-color: #4CAF50; border: none; color: white; padding: 12px 20px; text-align: center; font-size: 16px; margin: 10px 2px; cursor: pointer; border-radius: 10px;">Komutu Kopyala</button>
+        <p id="copy-message" style="display: none; color: #4CAF50; font-weight: bold;">Komut kopyalandı! Telegram botuna yapıştırın.</p>
+        <button id="open-telegram" style="background-color: #0088cc; border: none; color: white; padding: 12px 20px; text-align: center; font-size: 16px; margin: 10px 2px; cursor: pointer; border-radius: 10px;">Telegram'ı Aç</button>
+        <button id="restart-button" style="margin-top: 15px;">Tekrar Oyna</button>
+    `;
+    
+    // Add event listeners
+    document.getElementById('copy-command').addEventListener('click', function() {
+        navigator.clipboard.writeText(commandText).then(function() {
+            document.getElementById('copy-message').style.display = 'block';
+        });
+    });
+    
+    document.getElementById('open-telegram').addEventListener('click', function() {
+        window.open('https://t.me/Yesiltobacco_bot', '_blank');
+    });
+    
+    document.getElementById('restart-button').addEventListener('click', startGame);
 }
 
 // Event listeners
