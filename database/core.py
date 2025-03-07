@@ -344,15 +344,6 @@ class Database:
             ''')
             
             self.cur.execute('''
-            CREATE TABLE IF NOT EXISTS game_chances (
-                id INTEGER PRIMARY KEY,
-                user_id INTEGER NOT NULL UNIQUE,
-                daily_chances INTEGER DEFAULT 3,
-                last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
-            )
-            ''')
-            self.cur.execute('''
             CREATE TABLE IF NOT EXISTS discount_coupons (
                 id INTEGER PRIMARY KEY,
                 user_id INTEGER NOT NULL,

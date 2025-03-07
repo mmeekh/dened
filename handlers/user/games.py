@@ -10,107 +10,8 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
-def initialize_game_tracking():
-    """Create a new table for tracking game plays reliably"""
-    try:
-        # Create a new table separate from game_chances
-        db.cur.execute('''
-        CREATE TABLE IF NOT EXISTS flappy_plays (
-            id INTEGER PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            play_date TEXT NOT NULL,
-            plays_today INTEGER DEFAULT 1,
-            UNIQUE(user_id, play_date)
-        )
-        ''')
-        db.conn.commit()
-        logger.info("Initialized flappy_plays tracking table")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to initialize game tracking: {e}")
-        return False
-
-# Call this function at module initialization
-initialize_game_tracking()
-
-# New function to track plays
-def track_game_play(user_id):
-    """Track a game play for a user with reliable counting"""
-    try:
-        # Get today's date as YYYY-MM-DD
-        today = datetime.now().strftime('%Y-%m-%d')
-        
-        # Try to insert a new record for today
-        try:
-            db.cur.execute(
-                "INSERT INTO flappy_plays (user_id, play_date, plays_today) VALUES (?, ?, 1)",
-                (user_id, today)
-            )
-            db.conn.commit()
-            logger.info(f"Created new play tracking for user {user_id} on {today}")
-            return 1, 4  # First play, 4 remaining
-        except:
-            # Record already exists, increment plays count
-            db.cur.execute(
-                "SELECT plays_today FROM flappy_plays WHERE user_id = ? AND play_date = ?",
-                (user_id, today)
-            )
-            result = db.cur.fetchone()
-            if not result:
-                # Strange situation, try to insert again
-                db.cur.execute(
-                    "INSERT INTO flappy_plays (user_id, play_date, plays_today) VALUES (?, ?, 1)",
-                    (user_id, today)
-                )
-                db.conn.commit()
-                return 1, 4
-            
-            plays_today = result[0]
-            
-            # Check if limit reached
-            if plays_today >= 5:
-                logger.info(f"User {user_id} has reached play limit for today")
-                return plays_today, 0
-            
-            # Increment plays
-            db.cur.execute(
-                "UPDATE flappy_plays SET plays_today = plays_today + 1 WHERE user_id = ? AND play_date = ?",
-                (user_id, today)
-            )
-            db.conn.commit()
-            
-            new_count = plays_today + 1
-            remaining = max(0, 5 - new_count)
-            logger.info(f"Updated play count for user {user_id}: {plays_today} -> {new_count}, remaining: {remaining}")
-            return new_count, remaining
-    except Exception as e:
-        logger.error(f"Error tracking game play: {e}")
-        return 0, 5  # Default to allowing play on error
-
-# New function to get remaining plays
-def get_remaining_plays(user_id):
-    """Get remaining plays for a user today"""
-    try:
-        today = datetime.now().strftime('%Y-%m-%d')
-        
-        db.cur.execute(
-            "SELECT plays_today FROM flappy_plays WHERE user_id = ? AND play_date = ?",
-            (user_id, today)
-        )
-        result = db.cur.fetchone()
-        
-        if not result:
-            # No plays today
-            return 5
-        
-        plays_today = result[0]
-        remaining = max(0, 5 - plays_today)
-        return remaining
-    except Exception as e:
-        logger.error(f"Error getting remaining plays: {e}")
-        return 5  # Default to allowing play on error
 async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show game menu with tracking system status"""
+    """Show game menu without play limits"""
     try:
         # Delete previous message if possible
         if update.callback_query:
@@ -121,12 +22,17 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         user_id = update.effective_user.id
         
-        # Get remaining plays from our tracking system
-        remaining_plays = get_remaining_plays(user_id)
-        
         # Get user stats
         user_best = db.get_user_best_score(user_id)
         user_total = db.get_user_total_score(user_id)
+        
+        # Get total games played
+        db.cur.execute(
+            "SELECT COUNT(*) FROM game_scores WHERE user_id = ?",
+            (user_id,)
+        )
+        result = db.cur.fetchone()
+        games_played = result[0] if result else 0
         
         # Prepare menu
         keyboard = [
@@ -140,16 +46,16 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🍀 Flappy Weed oyununda yüksek puan yap ve ödül kazan!
 
 📊 İstatistikleriniz:
-• 🎯 Günlük oyun hakkı: {remaining_plays}/5
-• 🥇 En yüksek skorunuz: {user_best}
-• 💰 Toplam puanınız: {user_total}
+- 🎮 Toplam oynanan oyun: {games_played}
+- 🥇 En yüksek skorunuz: {user_best}
+- 💰 Toplam puanınız: {user_total}
 
 🎁 ÖDÜL SİSTEMİ (Toplam Puana Göre):
-• 200+ Puan = %5 İndirim
-• 500+ Puan = %10 İndirim
-• 1000+ Puan = %15 İndirim
-• 1500+ Puan = %25 İndirim
-• 2000+ Puan = Premium Ürün Hediyesi
+- 200+ Puan = %5 İndirim
+- 500+ Puan = %10 İndirim
+- 1000+ Puan = %15 İndirim
+- 1500+ Puan = %25 İndirim
+- 2000+ Puan = Premium Ürün Hediyesi
 
 🔄 Her oyunda kazandığınız puanlar toplanır ve ödüllere çevrilir!
 📱 Oynamak için 'Flappy Weed Oyna' butonuna tıklayın."""
@@ -186,27 +92,8 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
 async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start Flappy Weed game after checking play limits"""
+    """Start Flappy Weed game without play limits"""
     user_id = update.effective_user.id
-    
-    # Check remaining plays
-    remaining_plays = get_remaining_plays(user_id)
-    
-    if remaining_plays <= 0:
-        # No plays left today
-        await update.callback_query.message.edit_text(
-            text=f"⚠️ Günlük oyun hakkınız doldu!\n\n"
-                 f"Her gün 5 oyun hakkınız bulunmaktadır.\n"
-                 f"Yarın tekrar deneyebilirsiniz.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
-                [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-            ])
-        )
-        return
-    
-    # ÖNEMLİ: Burada oyun başlatıldığında bir hakkı tüketiyoruz
-    plays_today, remaining_plays = track_game_play(user_id)
     
     try:
         # Create a game session
@@ -218,10 +105,15 @@ async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"User {user_id} starting game with session {game_session}")
         
+        # Get user stats
+        user_best = db.get_user_best_score(user_id)
+        user_total = db.get_user_total_score(user_id)
+        
         # Show game instructions and start button
         await update.callback_query.message.edit_text(
             text=f"🍀 Flappy Weed Oyunu\n\n"
-                 f"Bugün kalan oyun hakkınız: {remaining_plays}/5\n\n"
+                 f"🏆 En yüksek skorunuz: {user_best}\n"
+                 f"💰 Toplam puanınız: {user_total}\n\n"
                  f"Nasıl Oynanır:\n"
                  f"- Ekrana tıklayarak weed parçasını zıplat\n"
                  f"- Borulardan kaçın ve mümkün olduğunca ilerle\n"
@@ -281,7 +173,7 @@ async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]])
         )
 async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle game score saving with reliable play tracking"""
+    """Handle game score saving without play limits"""
     try:
         user_id = update.effective_user.id
         game_session = None
@@ -307,11 +199,6 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"Processing score: user={user_id}, score={score}")
         
-        # ÖNEMLİ: Artık burada track_game_play çağırmıyoruz,
-        # sadece kalan hakları sorguluyoruz
-        remaining_plays = get_remaining_plays(user_id)
-        plays_today = 5 - remaining_plays
-        
         # Save score to normal table
         db.cur.execute(
             "INSERT INTO game_scores (user_id, session_id, score) VALUES (?, ?, ?)",
@@ -327,13 +214,15 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = db.cur.fetchone()
         total_score = result[0] if result and result[0] else 0
         
-        # Show basic completion message with plays count
+        # Get best score
+        user_best = db.get_user_best_score(user_id)
+        
+        # Show completion message
         await context.bot.send_message(
             chat_id=user_id,
             text=f"👏 Oyun tamamlandı! Bu oyunda {score} puan kazandınız!\n\n"
-                 f"💰 Toplam Biriken Puanınız: {total_score}\n"
-                 f"🎮 Bugün oynanan: {plays_today}/5 oyun\n"
-                 f"🎲 Kalan Oyun Hakkı: {remaining_plays}/5\n\n"
+                 f"🥇 En yüksek skorunuz: {user_best}\n"
+                 f"💰 Toplam Biriken Puanınız: {total_score}\n\n"
                  f"💡 İpucu: Oynamaya devam ederek puanlarınızı toplayın ve özel ödüller kazanın!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
