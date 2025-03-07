@@ -1301,32 +1301,35 @@ class Database:
                 chances, last_reset_str = result
                 # Fix date parsing issue
                 try:
-                    last_reset = datetime.strptime(last_reset_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    if isinstance(last_reset_str, str):
+                        last_reset = datetime.strptime(last_reset_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_reset = last_reset_str
                 except:
                     # Use current time if parsing fails
-                    last_reset = current_time
+                    last_reset = current_time - timedelta(days=1)  # Default to yesterday
                 
                 if (current_time - last_reset).days > 0:
-                    # Reset to 5 chances instead of 3
+                    # Reset to 5 chances (new day)
                     self.cur.execute(
                         "UPDATE game_chances SET daily_chances = 5, last_reset = ? WHERE user_id = ?",
-                        (current_time, user_id)
+                        (current_time.strftime('%Y-%m-%d %H:%M:%S'), user_id)
                     )
                     self.conn.commit()
                     return 5
                 else:
-                    return chances
+                    return max(0, chances)  # Ensure non-negative
             else:
-                # Initialize with 5 chances instead of 3
+                # First time playing, initialize with 5 chances
                 self.cur.execute(
                     "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 5, ?)",
-                    (user_id, current_time)
+                    (user_id, current_time.strftime('%Y-%m-%d %H:%M:%S'))
                 )
                 self.conn.commit()
                 return 5
         except Exception as e:
             logger.error(f"Error getting remaining daily games: {e}")
-            return 5 # Hata durumunda kullanıcının oynamasına izin ver
+            return 5  # Hata durumunda kullanıcının oynamasına izin ver
 
     def get_next_game_reset_time(self, user_id: int) -> datetime:
         """Get next time when game chances will reset"""

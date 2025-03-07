@@ -1,10 +1,9 @@
 import logging
-import json
-import uuid
-import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import Database
+import json
+import random
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -166,127 +165,145 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle game score saving and reward distribution"""
     try:
         user_id = update.effective_user.id
-        logger.info(f"Processing game score for user {user_id}")
-
+        game_session = None
+        score = 0
+        
+        # Parse data from different sources
         if update.message and update.message.web_app_data:
-            # Data from WebApp
             data = json.loads(update.message.web_app_data.data)
             game_session = data.get('session')
-            score = data.get('score', 0)
-            logger.info(f"WebApp data: session={game_session}, score={score}")
-            
+            score = int(data.get('score', 0))
         elif update.message and update.message.text and 'save_score_' in update.message.text:
-            # Data from start command with deep link parameters
-            parts = update.message.text.split('save_score_')[1].split('_')
-            if len(parts) >= 2:
+            parts = update.message.text.split('save_score_')[1].rsplit('_', 1)
+            if len(parts) == 2:
                 game_session = parts[0]
                 score = int(parts[1])
-                logger.info(f"URL data: session={game_session}, score={score}, raw={update.message.text}")
-            else:
-                logger.error(f"Invalid deep link format: {update.message.text}")
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text="❌ Skor formatı geçersiz.",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                        [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                    ])
-                )
-                return
+        elif update.callback_query and 'save_score_' in update.callback_query.data:
+            parts = update.callback_query.data.split('save_score_')[1].rsplit('_', 1)
+            if len(parts) == 2:
+                game_session = parts[0]
+                score = int(parts[1])
+        
+        if not game_session or score <= 0:
+            logger.warning(f"Invalid game data: session={game_session}, score={score}")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text="❌ Geçersiz oyun verisi. Skor kaydedilemedi.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                ])
+            )
+            return
+        
+        logger.info(f"Processing score: user={user_id}, session={game_session}, score={score}")
+        
+        # MANUALLY UPDATE GAME CHANCES - Direct database approach
+        try:
+            db.conn.execute("BEGIN TRANSACTION")
+            
+            # Check current chances
+            db.cur.execute(
+                "SELECT daily_chances, last_reset FROM game_chances WHERE user_id = ?",
+                (user_id,)
+            )
+            result = db.cur.fetchone()
+            
+            current_time = datetime.now()
+            current_time_str = current_time.strftime('%Y-%m-%d %H:%M:%S')
+            
+            if result:
+                chances, last_reset_str = result
+                # Parse last reset time safely
+                try:
+                    if isinstance(last_reset_str, str):
+                        last_reset = datetime.strptime(last_reset_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
+                    else:
+                        last_reset = last_reset_str
+                except:
+                    last_reset = current_time - timedelta(days=1)  # Default to yesterday
                 
-        elif update.callback_query:
-            # Data from callback query
-            try:
-                data = json.loads(update.callback_query.data.replace('save_score_', ''))
-                game_session = data.get('session')
-                score = data.get('score', 0)
-                logger.info(f"Callback data: session={game_session}, score={score}")
-            except:
-                # Parse as plain text if JSON parsing fails
-                parts = update.callback_query.data.split('save_score_')[1].split('_')
-                if len(parts) >= 2:
-                    game_session = parts[0]
-                    score = int(parts[1])
-                    logger.info(f"Callback text data: session={game_session}, score={score}")
+                # Check if reset needed (new day)
+                if (current_time - last_reset).days > 0:
+                    logger.info(f"Resetting daily game chances for user {user_id}")
+                    db.cur.execute(
+                        "UPDATE game_chances SET daily_chances = 4, last_reset = ? WHERE user_id = ?",
+                        (current_time_str, user_id)
+                    )
+                    remaining_chances = 4  # Already using 1 chance
                 else:
-                    logger.error(f"Invalid callback data: {update.callback_query.data}")
-                    await update.callback_query.answer("Skor formatı geçersiz.")
-                    return
-        else:
-            logger.error("No valid score data found in update")
+                    # Not a new day, just decrement
+                    if chances > 0:
+                        db.cur.execute(
+                            "UPDATE game_chances SET daily_chances = daily_chances - 1 WHERE user_id = ?",
+                            (user_id,)
+                        )
+                        remaining_chances = chances - 1
+                    else:
+                        # No chances left
+                        db.conn.execute("ROLLBACK")
+                        await context.bot.send_message(
+                            chat_id=user_id,
+                            text="⚠️ Günlük oyun hakkınız kalmadı! Yarın tekrar deneyebilirsiniz.",
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                            ])
+                        )
+                        return
+            else:
+                # First time playing, create record with 4 chances left (using 1 now)
+                db.cur.execute(
+                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 4, ?)",
+                    (user_id, current_time_str)
+                )
+                remaining_chances = 4
+            
+            # Save the score
+            db.cur.execute(
+                "INSERT INTO game_scores (user_id, session_id, score) VALUES (?, ?, ?)",
+                (user_id, game_session, score)
+            )
+            
+            # Mark session as used
+            db.cur.execute(
+                "UPDATE game_sessions SET is_used = 1 WHERE user_id = ? AND session_id = ?",
+                (user_id, game_session)
+            )
+            
+            # Commit all changes
+            db.conn.execute("COMMIT")
+            logger.info(f"Score {score} saved for user {user_id}, remaining chances: {remaining_chances}")
+            
+        except Exception as db_error:
+            logger.error(f"Database error: {db_error}")
+            db.conn.execute("ROLLBACK")
             await context.bot.send_message(
                 chat_id=user_id,
-                text="❌ Skor verisi alınamadı.",
+                text="❌ Veritabanı hatası. Skor kaydedilemedi.",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
                     [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
                 ])
             )
             return
-            
-        logger.info(f"Processed score data: user={user_id}, session={game_session}, score={score}")
         
-        # Validate game session belongs to the user
-        if not db.validate_game_session(user_id, game_session):
-            logger.warning(f"Invalid game session {game_session} for user {user_id}")
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="⚠️ Geçersiz oyun oturumu! Skor kaydedilemedi.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                ])
-            )
-            return
+        # Get updated total score
+        db.cur.execute(
+            "SELECT SUM(score) FROM game_scores WHERE user_id = ?",
+            (user_id,)
+        )
+        result = db.cur.fetchone()
+        total_score = result[0] if result and result[0] else 0
         
-        remaining_chances = db.get_remaining_daily_games(user_id)
-        if remaining_chances <= 0:
-            logger.warning(f"User {user_id} has no remaining game chances")
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="⚠️ Günlük oyun hakkınız kalmadı! Yarın tekrar deneyin.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
-                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                ])
-            )
-            return
-            
-        if not db.use_game_chance(user_id):
-            logger.warning(f"Failed to use game chance for user {user_id}")
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="❌ Oyun hakkı kullanılırken bir hata oluştu.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                ])
-            )
-            return
-            
-        # Save the score
-        if not db.save_game_score(user_id, game_session, score):
-            logger.error(f"Failed to save score {score} for user {user_id}")
-            await context.bot.send_message(
-                chat_id=user_id,
-                text="❌ Skor kaydedilirken bir hata oluştu.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
-                ])
-            )
-            return
-            
-        logger.info(f"Score {score} saved successfully for user {user_id}")
-        
-        total_score = db.get_user_total_score(user_id)
-        
-        # Check reward levels based on total score
+        # Check reward levels
         reward_level = check_reward_level(total_score)
         previous_level = context.user_data.get('reward_level', 0)
         
+        # Handle level-up rewards
         if reward_level > previous_level:
             context.user_data['reward_level'] = reward_level
             
+            # Determine reward
             discount = 0
             if reward_level == 5:  # 2000+ points
                 message = f"🎁 TEBRİKLER! Toplam {total_score} puana ulaştınız ve Premium Ürün kazandınız!"
@@ -316,46 +333,44 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reply_markup=InlineKeyboardMarkup([
                         [InlineKeyboardButton("🎟️ Kuponlarımı Göster", callback_data='my_coupons')],
                         [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                        [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')],
-                        [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')]
+                        [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
                     ])
                 )
                 return
         
-        # Check if single game score is high enough for a special reward
-        if score >= 500 and score < 1000:
-            # 20% chance to get a small reward for 500+ points in a single game
-            if random.randint(1, 5) == 1:
-                coupon_code = db.create_discount_coupon(user_id, 5, f"Tek oyunda {score} puan özel ödülü")
-                await context.bot.send_message(
-                    chat_id=user_id,
-                    text=f"🎁 Şanslı gün! Tek oyunda {score} puan kazandınız ve %5 indirim kuponu elde ettiniz!\n\n🏷️ Kupon kodu: {coupon_code}",
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🎟️ Kuponlarımı Göster", callback_data='my_coupons')],
-                        [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                        [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')]
-                    ])
-                )
-                return
-        elif score >= 1000:
+        # Check for single-game high score rewards
+        if score >= 1000:
             # Always reward 1000+ points in a single game
             discount = 10 if score >= 1500 else 7
             coupon_code = db.create_discount_coupon(user_id, discount, f"Tek oyunda {score} puan özel ödülü")
             await context.bot.send_message(
                 chat_id=user_id,
-                text=f"🏆 Mükemmel oyun! Tek seferde {score} puan kazandınız ve %{discount} özel indirim kuponu elde ettiniz!\n\n🏷️ Kupon kodu: {coupon_code}",
+                text=f"🏆 Mükemmel oyun! Tek seferde {score} puan kazandınız ve %{discount} özel indirim kuponu elde ettiniz!\n\n"
+                     f"🎟️ Kupon kodu: {coupon_code}\n"
+                     f"Kalan Oyun Hakkı: {remaining_chances}/5",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("🎟️ Kuponlarımı Göster", callback_data='my_coupons')],
                     [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                    [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')]
+                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                ])
+            )
+            return
+        elif score >= 500 and random.randint(1, 5) == 1:  # 20% chance
+            coupon_code = db.create_discount_coupon(user_id, 5, f"Tek oyunda {score} puan özel ödülü")
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"🎁 Şanslı gün! Tek oyunda {score} puan kazandınız ve %5 indirim kuponu elde ettiniz!\n\n"
+                     f"🎟️ Kupon kodu: {coupon_code}\n"
+                     f"Kalan Oyun Hakkı: {remaining_chances}/5",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎟️ Kuponlarımı Göster", callback_data='my_coupons')],
+                    [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
+                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
                 ])
             )
             return
         
-        # Show regular game completion message
-        # Get remaining chances after this game
-        remaining_chances = db.get_remaining_daily_games(user_id)
-        
+        # Default completion message
         await context.bot.send_message(
             chat_id=user_id,
             text=f"👏 Oyun tamamlandı! Bu oyunda {score} puan kazandınız!\n\n"
@@ -368,9 +383,9 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
             ])
         )
-                
+    
     except Exception as e:
-        logger.error(f"Error handling game score: {e}", exc_info=True)
+        logger.error(f"Error in handle_game_score: {e}", exc_info=True)
         try:
             await context.bot.send_message(
                 chat_id=user_id,
