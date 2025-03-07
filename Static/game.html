@@ -157,6 +157,11 @@
 
     <!-- Game Script -->
     <script>
+// URL'den oyun oturumu parametresini al
+const urlParams = new URLSearchParams(window.location.search);
+const gameSession = urlParams.get('session') || 'default';
+console.log("Oyun Oturumu:", gameSession);
+
 // Weed character class
 class Weed {
     constructor(canvas) {
@@ -465,25 +470,45 @@ function gameOver() {
     }
 }
 
-// Save score to Telegram
 function saveScore() {
     const data = {
         session: gameSession,
         score: score
     };
 
+    console.log("Saving score:", score, "Session:", gameSession);
+
     try {
-        // Telegram WebApp API
+        // Telegram WebApp API kullanılabilir mi kontrol et
         if (window.Telegram && window.Telegram.WebApp) {
+            console.log("Using Telegram WebApp API");
             window.Telegram.WebApp.sendData(JSON.stringify(data));
             alert("Skorunuz kaydedildi!");
         } else {
-            // Fallback to URL redirect
-            window.location.href = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
+            console.log("Fallback to URL redirect");
+            
+            const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
+            console.log("Redirecting to:", redirectUrl);
+            
+            // URL'ye yönlendirmeden önce bir mesaj göster
+            alert("Skorunuzu kaydetmek için Telegram botuna yönlendiriliyorsunuz...");
+            
+            // Küçük bir gecikme ekleyelim ki kullanıcı mesajı görsün
+            setTimeout(() => {
+                window.location.href = redirectUrl;
+            }, 1000);
         }
     } catch (e) {
         console.error("Skor kaydedilirken hata:", e);
-        alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
+        
+        // Hata durumunda da URL yönlendirmesini deneyelim
+        try {
+            alert("Skor kaydederken bir hata oluştu. Alternatif yöntem deneniyor...");
+            const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
+            window.location.href = redirectUrl;
+        } catch (e2) {
+            alert("Skor kaydedilemedi, lütfen tekrar deneyin.");
+        }
     }
 }
 

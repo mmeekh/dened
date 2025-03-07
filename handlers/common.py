@@ -8,6 +8,7 @@ from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 from .user.games import show_games_menu, play_flappy_weed, start_flappy_game, show_leaderboard, handle_game_score
+from .user.coupons import show_my_coupons
 
 from .admin import (
     manage_products,
@@ -98,6 +99,11 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=None
             )
             return ConversationHandler.END
+            
+        # Kuponlar sayfası - YENİ EKLENEN KISIM
+        elif query.data == 'my_coupons':
+            await show_my_coupons(update, context)
+            return
         
         # Siparişleri temizleme işlemleri
         elif query.data == 'confirm_cleanup_orders':
@@ -342,7 +348,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     ]])
                 )
             return
-        elif query.data == 'support_menu':  
+        elif query.data == 'support_menu':
             await show_support_menu(update, context)
             return
         elif query.data == 'faq':

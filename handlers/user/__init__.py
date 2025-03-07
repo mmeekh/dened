@@ -9,6 +9,7 @@ from .payments import (
 )
 from .support import show_support_menu, show_faq
 from .games import show_games_menu, play_flappy_weed, start_flappy_game, show_leaderboard, handle_game_score
+from .coupons import show_my_coupons  # Yeni eklenen kupon işleyicisi
 
 __all__ = [
     'show_products_menu',
@@ -29,5 +30,6 @@ __all__ = [
     'play_flappy_weed',
     'start_flappy_game',
     'show_leaderboard',
-    'handle_game_score'
+    'handle_game_score',
+    'show_my_coupons'
 ]

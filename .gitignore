@@ -2723,3 +2723,4 @@ venv/Scripts/python.exe
 venv/Scripts/pythonw.exe
 venv/Scripts/qr.exe
 venv/share/man/man1/qr.1
+*.db

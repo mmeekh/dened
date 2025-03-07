@@ -33,21 +33,45 @@ def get_main_menu_keyboard(user_id):
         try:
             cart_count = db.get_cart_count(user_id)
             cart_text = f"🛍 Sepetim ({cart_count})" if cart_count > 0 else "🛍 Sepetim"
+            
+            # Kullanıcının kupon sayısını al
+            coupon_count = get_user_coupon_count(user_id)
+            coupon_text = f"🎟️ Kuponlarım ({coupon_count})" if coupon_count > 0 else "🎟️ Kuponlarım"
         except Exception as e:
-            logger.error(f"Error getting cart count: {e}")
+            logger.error(f"Error getting counts: {e}")
             cart_text = "🛍 Sepetim"
+            coupon_text = "🎟️ Kuponlarım"
 
         keyboard = [
-            [InlineKeyboardButton("🎯 Ürünler", callback_data='products_menu')],
-            [InlineKeyboardButton(cart_text, callback_data='show_cart')],
-            [InlineKeyboardButton("🏷 Siparişlerim", callback_data='orders_menu')],
+            [
+                InlineKeyboardButton("🎯 Ürünler", callback_data='products_menu'),
+                InlineKeyboardButton(cart_text, callback_data='show_cart')
+            ],
+            [
+                InlineKeyboardButton("🏷 Siparişlerim", callback_data='orders_menu'),
+                InlineKeyboardButton(coupon_text, callback_data='my_coupons')
+            ],
             [InlineKeyboardButton("💳 Ödeme İşlemleri", callback_data='payment_menu')],
             [InlineKeyboardButton("ℹ️ Destek & Bilgi", callback_data='support_menu')],
             [InlineKeyboardButton("🎮 Flappy Weed Oyna", callback_data='games_menu')],
-
         ]
     return InlineKeyboardMarkup(keyboard)
 
+def get_user_coupon_count(user_id):
+    """Kullanıcının aktif kupon sayısını döndürür"""
+    try:
+        db.cur.execute(
+            """SELECT COUNT(*) 
+               FROM discount_coupons 
+               WHERE user_id = ? AND is_used = 0 
+                 AND (expires_at IS NULL OR expires_at > datetime('now'))""",
+            (user_id,)
+        )
+        result = db.cur.fetchone()
+        return result[0] if result else 0
+    except Exception as e:
+        logger.error(f"Error getting coupon count: {e}")
+        return 0
 async def show_main_menu(update, context, message=None):
     """Ana menüyü gösterir - menünün sabit kalması için aynı mesajı düzenler"""
     user_id = update.effective_user.id
@@ -139,12 +163,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return ConversationHandler.END
         
         logger.info("Starting new conversation")
-        # Kullanıcıyı veritabanına ekle
+        # Kullanıcıyı veritabanına ekle - Bu satırları güncelliyoruz
         logger.info(f"Adding user {user_id} to database")
-        if db.add_user(user_id):
-            logger.info(f"Successfully added user {user_id}")
-        else:
-            logger.warning(f"Failed to add user {user_id} or user already exists")
+        try:
+            # Doğrudan SQL sorgusu kullanarak kullanıcıyı ekleyelim - add_user metodu yerine
+            db.cur.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (user_id,))
+            if not db.cur.fetchone():
+                db.cur.execute(
+                    "INSERT INTO users (telegram_id, failed_payments, is_banned) VALUES (?, 0, 0)",
+                    (user_id,)
+                )
+                db.conn.commit()
+                logger.info(f"Successfully added user {user_id}")
+        except Exception as e:
+            logger.error(f"Error adding user {user_id}: {e}")
         
         # Karşılama mesajını oluştur
         welcome_message = f"""🌟 Tobacco'ya Hoş Geldiniz {user_first_name}! 🌟
@@ -169,7 +201,7 @@ Menüden istediğiniz seçeneği seçerek alışverişe başlayabilirsiniz."""
             update=update,
             context=context,
             text="Hoş geldiniz! Lütfen bir seçenek seçin:",
-            reply_markup=get_main_menu_keyboard(user_id)
+            reply_markup=get_main_menu_keyboard(update.effective_user.id)
         )
         logger.error(f"Fallback message sent for user {user_id}")
         return ConversationHandler.END

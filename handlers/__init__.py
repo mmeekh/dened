@@ -24,7 +24,8 @@ from .user import (
     show_payment_howto,
     handle_purchase_request,
     show_support_menu,
-    show_faq
+    show_faq,
+    show_my_coupons  # Yeni eklendi
 )
 
 from .common import button_handler, cancel
@@ -54,6 +55,7 @@ __all__ = [
     'handle_purchase_request',
     'show_support_menu',
     'show_faq',
+    'show_my_coupons',  # Yeni eklendi
     
     # Common handlers
     'button_handler',
