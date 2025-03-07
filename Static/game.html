@@ -137,7 +137,7 @@
     <div id="game-container">
         <canvas id="game-canvas" width="320" height="480"></canvas>
         <div class="score">0</div>
-        <button id="toggle-sound" onclick="soundEnabled = !soundEnabled; this.textContent = soundEnabled ? '🔊' : '🔇';">🔊</button>
+        <button id="toggle-sound" onclick="soundEnabled = !soundEnabled; this.textContent = soundEnabled ? '🔊' : '🔇'; if(!soundEnabled) { pauseBackgroundMusic(); } else if(gameActive) { playBackgroundMusic(); }">🔊</button>
         
         <div class="start-screen">
             <h1 class="game-title">Flappy Weed</h1>
@@ -310,7 +310,13 @@ const jumpSound = new Audio('https://assets.mixkit.co/active_storage/sfx/3005/30
 const scoreSound = new Audio('https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3');
 const gameOverSound = new Audio('https://assets.mixkit.co/active_storage/sfx/3/3-preview.mp3');
 
+// Interstellar müziği - Hans Zimmer'ın "Cornfield Chase" veya "No Time For Caution" 
+const backgroundMusic = new Audio('https://ia601303.us.archive.org/14/items/hans-zimmer-no-time-for-caution-interstellar-soundtrack-hq/Hans%20Zimmer%20-%20No%20Time%20For%20Caution%20%28Interstellar%20Soundtrack%29%20%5BHQ%5D.mp3');
+backgroundMusic.loop = true; // Müziği sürekli döngüye al
+backgroundMusic.volume = 0.4; // Müzik sesini biraz kıs (0-1 arası değer)
+
 let soundEnabled = true;
+let musicPlaying = false;
 
 function playSound(sound) {
     if (!soundEnabled) return;
@@ -324,7 +330,28 @@ function playSound(sound) {
     } else if (sound === 'death') {
         gameOverSound.currentTime = 0;
         gameOverSound.play().catch(e => console.log('Sound play error:', e));
+        
+        // Oyun bitince müziği durdur
+        pauseBackgroundMusic();
+    } else if (sound === 'background') {
+        if (!musicPlaying) {
+            playBackgroundMusic();
+        }
     }
+}
+
+function playBackgroundMusic() {
+    if (soundEnabled) {
+        backgroundMusic.currentTime = 0;
+        backgroundMusic.play().then(() => {
+            musicPlaying = true;
+        }).catch(e => console.log('Music play error:', e));
+    }
+}
+
+function pauseBackgroundMusic() {
+    backgroundMusic.pause();
+    musicPlaying = false;
 }
 
 // Game variables
@@ -446,6 +473,9 @@ function startGame() {
     startScreen.style.display = 'none';
     gameOverScreen.style.display = 'none';
 
+    // Oyun başlayınca müziği çal
+    playSound('background');
+    
     gameLoop();
 }
 
