@@ -1257,11 +1257,12 @@ class Database:
             
             if result:
                 chances, last_reset = result
-                last_reset = datetime.strptime(last_reset, '%Y-%m-%d %H:%M:%S')
+                last_reset = datetime.strptime(last_reset.split('.')[0], '%Y-%m-%d %H:%M:%S') if isinstance(last_reset, str) else last_reset
                 
                 if (current_time - last_reset).days > 0:
+                    # Reset to 5 chances instead of 3
                     self.cur.execute(
-                        "UPDATE game_chances SET daily_chances = 2, last_reset = ? WHERE user_id = ?",
+                        "UPDATE game_chances SET daily_chances = 4, last_reset = ? WHERE user_id = ?",
                         (current_time, user_id)
                     )
                 else:
@@ -1273,8 +1274,9 @@ class Database:
                     else:
                         return False
             else:
+                # Initialize with 5 chances and immediately use one
                 self.cur.execute(
-                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 2, ?)",
+                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 4, ?)",
                     (user_id, current_time)
                 )
             
@@ -1297,32 +1299,34 @@ class Database:
             
             if result:
                 chances, last_reset_str = result
-                # Hatalı tarih çözümleme sorununu çöz
+                # Fix date parsing issue
                 try:
                     last_reset = datetime.strptime(last_reset_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
                 except:
-                    # Çözümleme hatası varsa şu anki zamanı kullan
+                    # Use current time if parsing fails
                     last_reset = current_time
                 
                 if (current_time - last_reset).days > 0:
+                    # Reset to 5 chances instead of 3
                     self.cur.execute(
-                        "UPDATE game_chances SET daily_chances = 3, last_reset = ? WHERE user_id = ?",
+                        "UPDATE game_chances SET daily_chances = 5, last_reset = ? WHERE user_id = ?",
                         (current_time, user_id)
                     )
                     self.conn.commit()
-                    return 3
+                    return 5
                 else:
                     return chances
             else:
+                # Initialize with 5 chances instead of 3
                 self.cur.execute(
-                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 3, ?)",
+                    "INSERT INTO game_chances (user_id, daily_chances, last_reset) VALUES (?, 5, ?)",
                     (user_id, current_time)
                 )
                 self.conn.commit()
-                return 3
+                return 5
         except Exception as e:
             logger.error(f"Error getting remaining daily games: {e}")
-            return 3  # Hata durumunda kullanıcının oynamasına izin ver
+            return 5 # Hata durumunda kullanıcının oynamasına izin ver
 
     def get_next_game_reset_time(self, user_id: int) -> datetime:
         """Get next time when game chances will reset"""
