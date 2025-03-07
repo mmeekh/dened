@@ -2727,3 +2727,5 @@ venv/share/man/man1/qr.1
 *.log
 *.db
 shop.db
+*.log
+*.db
