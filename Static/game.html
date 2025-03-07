@@ -308,12 +308,13 @@ class Pipe {
 
 const jumpSound = new Audio('https://assets.mixkit.co/active_storage/sfx/3005/3005-preview.mp3');
 const scoreSound = new Audio('https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3');
-const gameOverSound = new Audio('https://assets.mixkit.co/active_storage/sfx/3/3-preview.mp3');
+// Bomba sesi - game over için
+const gameOverSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2648/2648-preview.mp3');
 
-// Interstellar müziği - Hans Zimmer'ın "Cornfield Chase" veya "No Time For Caution" 
-const backgroundMusic = new Audio('https://ia601303.us.archive.org/14/items/hans-zimmer-no-time-for-caution-interstellar-soundtrack-hq/Hans%20Zimmer%20-%20No%20Time%20For%20Caution%20%28Interstellar%20Soundtrack%29%20%5BHQ%5D.mp3');
-backgroundMusic.loop = true; // Müziği sürekli döngüye al
-backgroundMusic.volume = 0.4; // Müzik sesini biraz kıs (0-1 arası değer)
+// Arkaplan müziği için orijinal seçimimize dönelim (daha basit bir seçenek)
+const backgroundMusic = new Audio('https://assets.mixkit.co/active_storage/sfx/2426/2426-preview.mp3');
+backgroundMusic.loop = true;
+backgroundMusic.volume = 0.4;
 
 let soundEnabled = true;
 let musicPlaying = false;
@@ -326,6 +327,7 @@ function playSound(sound) {
         jumpSound.play().catch(e => console.log('Sound play error:', e));
     } else if (sound === 'score') {
         scoreSound.currentTime = 0;
+        scoreSound.volume = 0.6; // Ses seviyesi %60'a düşürüldü (-%40)
         scoreSound.play().catch(e => console.log('Sound play error:', e));
     } else if (sound === 'death') {
         gameOverSound.currentTime = 0;
