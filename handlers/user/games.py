@@ -205,6 +205,9 @@ async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
+    # ÖNEMLİ: Burada oyun başlatıldığında bir hakkı tüketiyoruz
+    plays_today, remaining_plays = track_game_play(user_id)
+    
     try:
         # Create a game session
         game_session = f"{user_id}_{str(uuid.uuid4())}"
@@ -304,8 +307,10 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         logger.info(f"Processing score: user={user_id}, score={score}")
         
-        # Track this play
-        plays_today, remaining_plays = track_game_play(user_id)
+        # ÖNEMLİ: Artık burada track_game_play çağırmıyoruz,
+        # sadece kalan hakları sorguluyoruz
+        remaining_plays = get_remaining_plays(user_id)
+        plays_today = 5 - remaining_plays
         
         # Save score to normal table
         db.cur.execute(
