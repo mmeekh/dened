@@ -7,7 +7,15 @@ from database import Database
 from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
-from .user.games import show_games_menu, play_flappy_weed, start_flappy_game, show_leaderboard, handle_game_score
+from .user.games import (
+    show_games_menu, 
+    play_flappy_weed, 
+    start_flappy_game, 
+    show_leaderboard, 
+    handle_game_score, 
+    claim_rewards, 
+    confirm_reward
+)
 from .user.coupons import show_my_coupons
 
 from .admin import (
@@ -100,7 +108,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return ConversationHandler.END
             
-        # Kuponlar sayfası - YENİ EKLENEN KISIM
+        # Kuponlar sayfası
         elif query.data == 'my_coupons':
             await show_my_coupons(update, context)
             return
@@ -272,7 +280,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await admin_payments.view_all_orders(update, context)
             return
         
-        # Game handlers
+        # Game handlers - YENİ EKLENEN ÖDÜL SİSTEMİ KODLARI
         elif query.data == 'games_menu':
             await show_games_menu(update, context)
             return
@@ -288,6 +296,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith('save_score_'):
             await handle_game_score(update, context)
             return
+        # Yeni eklenen ödül talep sistemi
+        elif query.data == 'claim_rewards':
+            await claim_rewards(update, context)
+            return
+        elif query.data.startswith('confirm_reward_'):
+            await confirm_reward(update, context)
+            return
+            
         # User handler işlemleri
         elif query.data == 'products_menu':
             await show_products_menu(update, context)

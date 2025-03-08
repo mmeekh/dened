@@ -2,7 +2,7 @@ import sqlite3
 from typing import Optional, List, Tuple, Any, Dict
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -1437,16 +1437,16 @@ class Database:
             return 0
 
     def create_discount_coupon(self, user_id: int, discount_percent: int, source: str) -> str:
-        """Create a discount coupon for a user"""
+        """Create a discount coupon for a user with 10-digit code"""
         try:
             import random
             import string
             
-            # Generate a random coupon code
-            coupon_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            # Generate a 10-digit alphanumeric coupon code
+            coupon_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
             
-            # Set expiry date to 7 days from now
-            expires_at = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
+            # Set expiry date to 30 days from now
+            expires_at = (datetime.now() + timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
             
             self.cur.execute(
                 """INSERT INTO discount_coupons 
@@ -1460,7 +1460,7 @@ class Database:
             return coupon_code
         except Exception as e:
             logger.error(f"Error creating discount coupon: {e}")
-            return "ERROR"
+            return None
     def create_purchase_request(self, user_id: int, cart_items: list, wallet: str, discount_percent: int = 0) -> Optional[int]:
         """Create a new purchase request with assigned wallet and optional discount"""
         try:

@@ -2,6 +2,7 @@ import uuid
 import logging
 import json
 import random
+import calendar
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import Database
@@ -10,23 +11,32 @@ from datetime import datetime, timedelta
 logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
+# Test için daha düşük puan eşikleri kullanacağız
+REWARD_THRESHOLDS = {
+    10: 5,   # 10 puan = %5 indirim
+    20: 10,  # 20 puan = %10 indirim
+    30: 15,  # 30 puan = %15 indirim
+    40: 20,  # 40 puan = %20 indirim 
+    50: 25   # 50 puan = %25 indirim
+}
+
 async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show game menu without play limits"""
+    """Oyun menüsünü göster (oyun limitleri olmadan ve ödül talep etme butonuyla)"""
     try:
-        # Delete previous message if possible
+        # Önceki mesajı sil (mümkünse)
         if update.callback_query:
             try:
                 await update.callback_query.message.delete()
             except Exception as e:
-                logger.error(f"Error deleting message: {e}")
+                logger.error(f"Mesaj silinirken hata: {e}")
         
         user_id = update.effective_user.id
         
-        # Get user stats
+        # Kullanıcı istatistiklerini al
         user_best = db.get_user_best_score(user_id)
         user_total = db.get_user_total_score(user_id)
         
-        # Get total games played
+        # Toplam oynanan oyun sayısını al
         db.cur.execute(
             "SELECT COUNT(*) FROM game_scores WHERE user_id = ?",
             (user_id,)
@@ -34,9 +44,14 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = db.cur.fetchone()
         games_played = result[0] if result else 0
         
-        # Prepare menu
+        # Bir sonraki ay sıfırlama tarihini hesapla
+        next_reset = get_next_month_reset_date()
+        days_remaining = (next_reset - datetime.now()).days + 1
+        
+        # Menü butonlarını hazırla
         keyboard = [
             [InlineKeyboardButton("🍀 Flappy Weed Oyna", callback_data='play_flappy_weed')],
+            [InlineKeyboardButton("🎁 Ödüllerimi Talep Et", callback_data='claim_rewards')],
             [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
             [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
         ]
@@ -46,35 +61,30 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 🍀 Flappy Weed oyununda yüksek puan yap ve ödül kazan!
 
 📊 İstatistikleriniz:
-- 🎮 Toplam oynanan oyun: {games_played}
-- 🥇 En yüksek skorunuz: {user_best}
-- 💰 Toplam puanınız: {user_total}
+• 🎮 Toplam oynanan oyun: {games_played}
+• 🥇 En yüksek skorunuz: {user_best}
+• 💰 Toplam puanınız: {user_total}
 
-🎁 ÖDÜL SİSTEMİ (Toplam Puana Göre):
-- 200+ Puan = %5 İndirim
-- 500+ Puan = %10 İndirim
-- 1000+ Puan = %15 İndirim
-- 1500+ Puan = %25 İndirim
-- 2000+ Puan = Premium Ürün Hediyesi
+⚠️ Puanlar ve skorlar ayın sonunda sıfırlanacak
+⏳ Kalan süre: {days_remaining} gün
 
-🔄 Her oyunda kazandığınız puanlar toplanır ve ödüllere çevrilir!
+🎁 ÖDÜL SİSTEMİ:
+• 10+ Puan = %5 İndirim
+• 20+ Puan = %10 İndirim
+• 30+ Puan = %15 İndirim
+• 40+ Puan = %20 İndirim
+• 50+ Puan = %25 İndirim
+
+🔄 Ödüllerinizi talep etmek için "Ödüllerimi Talep Et" butonunu kullanın!
 📱 Oynamak için 'Flappy Weed Oyna' butonuna tıklayın."""
         
         # Add next reward info
-        if user_total < 200:
-            message += f"\n\n⭐ Sonraki ödül için {200 - user_total} puan daha kazanmalısınız!"
-        elif user_total < 500:
-            message += f"\n\n⭐ Sonraki ödül için {500 - user_total} puan daha kazanmalısınız!"
-        elif user_total < 1000:
-            message += f"\n\n⭐ Sonraki ödül için {1000 - user_total} puan daha kazanmalısınız!"
-        elif user_total < 1500:
-            message += f"\n\n⭐ Sonraki ödül için {1500 - user_total} puan daha kazanmalısınız!"
-        elif user_total < 2000:
-            message += f"\n\n⭐ Sonraki ödül için {2000 - user_total} puan daha kazanmalısınız!"
-        else:
-            message += "\n\n🌟 Tebrikler! En yüksek ödül seviyesine ulaştınız!"
+        for threshold in sorted(REWARD_THRESHOLDS.keys()):
+            if user_total < threshold:
+                message += f"\n\n⭐ Sonraki ödül için {threshold - user_total} puan daha kazanmalısınız!"
+                break
         
-        # Send menu
+        # Menüyü gönder
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=message,
@@ -82,7 +92,7 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         
     except Exception as e:
-        logger.error(f"Error showing game menu: {e}")
+        logger.error(f"Oyun menüsü gösterilirken hata: {e}")
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="❌ Oyun menüsü gösterilirken bir hata oluştu.",
@@ -90,35 +100,314 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
-        
-async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start Flappy Weed game without play limits"""
+
+def get_next_month_reset_date():
+    """Bir sonraki ayın son gününü hesapla (sıfırlama tarihi)"""
+    now = datetime.now()
+    # Bir sonraki ayın son gününü hesapla
+    if now.month == 12:
+        # Yılın son ayındaysak, bir sonraki yılın Ocak ayına geç
+        year = now.year + 1
+        month = 1
+    else:
+        year = now.year
+        month = now.month + 1
+    
+    # O ayın son gününü bul
+    last_day = calendar.monthrange(year, month)[1]
+    # Ayın son günü 23:59:59
+    return datetime(year, month, last_day, 23, 59, 59)
+
+async def claim_rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Kullanıcının puanlarına göre ödüllerini talep etmesini sağla"""
     user_id = update.effective_user.id
     
     try:
-        # Create a game session
+        # Kullanıcının toplam puanını al
+        total_score = db.get_user_total_score(user_id)
+        
+        # Kullanıcının alabileceği ödülleri belirle
+        available_rewards = []
+        
+        for threshold, discount in sorted(REWARD_THRESHOLDS.items()):
+            if total_score >= threshold:
+                available_rewards.append({
+                    'threshold': threshold,
+                    'discount': discount
+                })
+        
+        if not available_rewards:
+            # Kullanıcı hiçbir ödül hak etmemiş
+            await update.callback_query.message.edit_text(
+                text=f"""🎁 Ödül Talebi
+
+❌ Henüz ödül alabilecek puanınız bulunmuyor.
+
+💰 Mevcut puanınız: {total_score}
+🎯 İlk ödül için gereken puan: {min(REWARD_THRESHOLDS.keys())}
+
+🎮 Daha fazla puan kazanmak için oyun oynayın!""",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🎮 Oyun Oyna", callback_data='play_flappy_weed')],
+                    [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+                ])
+            )
+            return
+        
+        # Kullanıcı ödül alabilir
+        best_reward = available_rewards[-1]  # En yüksek ödül
+        
+        # Ödül onay mesajı
+        message = f"""🎁 Ödül Talebi
+
+✅ Tebrikler! Puanlarınızla şu ödülü talep edebilirsiniz:
+
+💯 %{best_reward['discount']} İndirim Kuponu
+📊 Gerekli puan: {best_reward['threshold']}
+💰 Mevcut puanınız: {total_score}
+
+⚠️ Bu ödülü talep ederseniz, {best_reward['threshold']} puanınız kullanılacaktır.
+📝 Kalan puanlarınız: {total_score - best_reward['threshold']} olacaktır.
+
+Ödülünüzü şimdi talep etmek istiyor musunuz?"""
+        
+        # Onay butonları
+        keyboard = [
+            [InlineKeyboardButton("✅ Ödülü Talep Et", callback_data=f"confirm_reward_{best_reward['threshold']}_{best_reward['discount']}")],
+            [InlineKeyboardButton("❌ Vazgeç", callback_data='games_menu')]
+        ]
+        
+        await update.callback_query.message.edit_text(
+            text=message,
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    except Exception as e:
+        logger.error(f"Ödül talebi işlenirken hata: {e}")
+        await update.callback_query.message.edit_text(
+            text="❌ Ödül talebi işlenirken bir hata oluştu.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
+            ]])
+        )
+
+async def confirm_reward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ödül talebini onayla ve kuponu oluştur"""
+    user_id = update.effective_user.id
+    
+    try:
+        # Callback verisinden ödül bilgilerini çıkart
+        data_parts = update.callback_query.data.split('_')
+        threshold = int(data_parts[2])
+        discount = int(data_parts[3])
+        
+        # Kullanıcının toplam puanını al
+        total_score = db.get_user_total_score(user_id)
+        
+        # Puanın yeterli olduğundan emin ol
+        if total_score < threshold:
+            await update.callback_query.message.edit_text(
+                text="❌ Yeterli puanınız bulunmuyor. Lütfen daha fazla oyun oynayın.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
+                ]])
+            )
+            return
+        
+        # Kuponu oluştur
+        coupon_code = db.create_discount_coupon(user_id, discount, "Oyun Ödülü")
+        
+        if not coupon_code or coupon_code == "ERROR":
+            # Kupon oluşturulamadı
+            await update.callback_query.message.edit_text(
+                text="❌ Kupon oluşturulurken bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
+                ]])
+            )
+            return
+        
+        # Kullanılan puanı düş
+        # Puanı azaltmak için negatif skor kaydet
+        try:
+            # Özel bir "puan düşürme" kaydı ekle
+            db.cur.execute(
+                "INSERT INTO game_scores (user_id, session_id, score, game_type) VALUES (?, ?, ?, ?)",
+                (user_id, "reward_claim", -threshold, "reward_claim")
+            )
+            db.conn.commit()
+            logger.info(f"Kullanıcı {user_id} ödül için {threshold} puan kullandı")
+        except Exception as e:
+            logger.error(f"Puan düşürülürken hata: {e}")
+            # Hata olsa bile devam et, en azından kuponu oluşturduysak kullanıcı görsün
+        
+        # Kullanıcıya başarı mesajı göster
+        message = f"""🎉 Tebrikler! Ödülünüz başarıyla oluşturuldu!
+
+🎟️ Kupon Kodu: {coupon_code}
+💯 İndirim Oranı: %{discount}
+📆 Geçerlilik: 30 gün
+
+📊 Kullanılan Puan: {threshold}
+💰 Kalan Puanınız: {total_score - threshold}
+
+Bu kuponu alışverişinizde kullanabilirsiniz. Kuponlarınızı "Kuponlarım" menüsünden görebilirsiniz."""
+        
+        await update.callback_query.message.edit_text(
+            text=message,
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🛍️ Alışverişe Başla", callback_data='products_menu')],
+                [InlineKeyboardButton("🎮 Daha Fazla Oyna", callback_data='play_flappy_weed')],
+                [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
+            ])
+        )
+        
+    except Exception as e:
+        logger.error(f"Ödül onaylanırken hata: {e}")
+        await update.callback_query.message.edit_text(
+            text="❌ Ödül işlenirken bir hata oluştu.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
+            ]])
+        )
+
+async def reset_monthly_scores():
+    """Aylık skorları sıfırla (her ayın son günü çalıştırılır)"""
+    try:
+        logger.info("Aylık skor sıfırlama işlemi başlatılıyor...")
+        
+        # Tüm puanları sıfırla
+        db.cur.execute("DELETE FROM game_scores")
+        db.conn.commit()
+        
+        logger.info("Tüm oyun skorları başarıyla sıfırlandı.")
+        return True
+    except Exception as e:
+        logger.error(f"Aylık skorları sıfırlarken hata: {e}")
+        return False
+
+async def schedule_monthly_reset(bot):
+    """Aylık sıfırlama zamanlayıcısını başlat"""
+    import asyncio
+    
+    while True:
+        try:
+            # Bir sonraki ayın sıfırlama tarihini hesapla
+            next_reset = get_next_month_reset_date()
+            
+            # Şu anki tarih ile aradaki farkı hesapla
+            now = datetime.now()
+            time_delta = next_reset - now
+            
+            if time_delta.total_seconds() > 0:
+                # Sıfırlama zamanına kadar bekle
+                logger.info(f"Bir sonraki sıfırlama: {next_reset.strftime('%Y-%m-%d %H:%M:%S')} "
+                          f"({time_delta.days} gün, {time_delta.seconds // 3600} saat sonra)")
+                
+                # Sıfırlamadan 2 gün önce tüm kullanıcılara bildirim gönder
+                if time_delta.days <= 2 and time_delta.days > 1:
+                    await send_reset_notifications(bot)
+                
+                # 1 saat sonra tekrar kontrol et
+                await asyncio.sleep(3600)
+            else:
+                # Sıfırlama zamanı geldi
+                logger.info("Aylık sıfırlama zamanı geldi, işlem başlatılıyor...")
+                
+                # Sıfırlamayı gerçekleştir
+                await reset_monthly_scores()
+                
+                # 1 saat bekle ve tekrar kontrol et
+                await asyncio.sleep(3600)
+        
+        except Exception as e:
+            logger.error(f"Sıfırlama zamanlayıcısında hata: {e}")
+            # Hata durumunda 1 saat bekle ve tekrar dene
+            await asyncio.sleep(3600)
+
+async def send_reset_notifications(bot):
+    """Tüm aktif kullanıcılara sıfırlama bildirimi gönder"""
+    try:
+        # Son 30 gün içinde oyun oynamış aktif kullanıcıları bul
+        db.cur.execute("""
+            SELECT DISTINCT user_id 
+            FROM game_scores 
+            WHERE created_at >= datetime('now', '-30 days')
+        """)
+        
+        active_users = [row[0] for row in db.cur.fetchall()]
+        logger.info(f"{len(active_users)} aktif kullanıcıya sıfırlama bildirimi gönderiliyor...")
+        
+        # Bildirim mesajı
+        message = """⚠️ UYARI: AYLIK SIFIRLAMA YAKLAŞIYOR
+
+🗓️ Tüm oyun puanları ve skorlar 2 gün sonra sıfırlanacak!
+
+🎁 Kazandığınız puanlarla ödül almak için son şansınız!
+1. Oyun menüsüne gidin
+2. "Ödüllerimi Talep Et" butonuna tıklayın
+3. Hak ettiğiniz indirimi alın
+
+💯 Ödüllerinizi talep etmezseniz, tüm puanlarınız kaybolacak!"""
+        
+        # Tüm aktif kullanıcılara bildirim gönder
+        for user_id in active_users:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=message,
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🎮 Oyun Menüsüne Git", callback_data='games_menu')],
+                        [InlineKeyboardButton("🎁 Ödüllerimi Talep Et", callback_data='claim_rewards')]
+                    ])
+                )
+            except Exception as e:
+                logger.error(f"Kullanıcı {user_id}'e bildirim gönderilirken hata: {e}")
+                continue
+        
+        logger.info("Sıfırlama bildirimleri gönderildi.")
+        return True
+    
+    except Exception as e:
+        logger.error(f"Sıfırlama bildirimleri gönderilirken hata: {e}")
+        return False
+
+async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Flappy Weed oyununu başlat (oyun kısıtlamaları olmadan)"""
+    user_id = update.effective_user.id
+    
+    try:
+        # Oyun oturumu oluştur
         game_session = f"{user_id}_{str(uuid.uuid4())}"
         game_url = f"https://mmeekh.github.io/dened/Static/game.html?session={game_session}"
         
-        # Save session to database
+        # Oturumu veritabanına kaydet
         db.create_game_session(user_id, game_session)
         
-        logger.info(f"User {user_id} starting game with session {game_session}")
+        logger.info(f"Kullanıcı {user_id} oyunu başlatıyor, oturum: {game_session}")
         
-        # Get user stats
+        # Kullanıcı istatistiklerini al
         user_best = db.get_user_best_score(user_id)
         user_total = db.get_user_total_score(user_id)
         
-        # Show game instructions and start button
+        # Sonraki sıfırlama bilgisini hesapla
+        next_reset = get_next_month_reset_date()
+        days_remaining = (next_reset - datetime.now()).days + 1
+        
+        # Oyun talimatlarını ve başlat butonunu göster
         await update.callback_query.message.edit_text(
-            text=f"🍀 Flappy Weed Oyunu\n\n"
-                 f"🏆 En yüksek skorunuz: {user_best}\n"
-                 f"💰 Toplam puanınız: {user_total}\n\n"
-                 f"Nasıl Oynanır:\n"
-                 f"- Ekrana tıklayarak weed parçasını zıplat\n"
-                 f"- Borulardan kaçın ve mümkün olduğunca ilerle\n"
-                 f"- Her bir borudan geçiş 1 puan kazandırır\n\n"
-                 f"🔊 Ses efektleri için telefonunuzun sesini açın!",
+            text=f"""🍀 Flappy Weed Oyunu
+
+🏆 En yüksek skorunuz: {user_best}
+💰 Toplam puanınız: {user_total}
+⏳ Aylık sıfırlamaya: {days_remaining} gün
+
+Nasıl Oynanır:
+• Ekrana tıklayarak weed parçasını zıplat
+• Borulardan kaçın ve mümkün olduğunca ilerle
+• Her bir borudan geçiş 1 puan kazandırır
+
+🔊 Ses efektleri için telefonunuzun sesini açın!""",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("▶️ Oyunu Başlat", web_app={"url": game_url})],
                 [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
@@ -133,20 +422,21 @@ async def play_flappy_weed(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]])
         )
 
+# Geriye dönük uyumluluk için start_flappy_game fonksiyonu eklendi
 async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Geriye dönük uyumluluk için mevcut - oyunu başlatır"""
+    """Geriye dönük uyumluluk için - Flappy Weed oyunu başlatma fonksiyonu"""
     try:
         user_id = update.effective_user.id
         game_session = update.callback_query.data.split('_')[2]
         
-        # Oturum bilgisini veritabanına kaydet - bu satırı ekliyoruz!
+        # Oturum bilgisini veritabanına kaydet
         db.create_game_session(user_id, game_session)
         
         game_url = f"https://mmeekh.github.io/dened/Static/game.html?session={game_session}"
         
         logger.info(f"User {user_id} started game with session {game_session}")
         
-        # Doğrudan web_app açılımına yönlendir
+        # Web uygulamasını aç
         await update.callback_query.message.edit_text(
             text="🎮 Flappy Weed oyunu yükleniyor...",
             reply_markup=InlineKeyboardMarkup([
@@ -163,30 +453,22 @@ async def start_flappy_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
             ]])
         )
-        
-    except Exception as e:
-        logger.error(f"Oyun başlatılırken hata: {e}")
-        await update.callback_query.message.edit_text(
-            text="❌ Oyun yüklenirken bir hata oluştu.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
-            ]])
-        )
+
 async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle game score saving without play limits"""
+    """Oyun skorunu kaydet ve ödül bilgisi göster"""
     try:
         user_id = update.effective_user.id
         game_session = None
         score = 0
         
-        # Extract score data from different formats
+        # Skor verilerini farklı formatlardan çıkart
         if update.message and update.message.text and 'save_score_' in update.message.text:
             parts = update.message.text.split('save_score_')[1].split('_')
             if len(parts) >= 2:
                 game_session = parts[0]
                 score = int(parts[1])
         else:
-            # Default handler for other cases
+            # Diğer durumlar için varsayılan işleyici
             await context.bot.send_message(
                 chat_id=user_id,
                 text="❌ Skor verisi alınamadı.",
@@ -197,16 +479,16 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        logger.info(f"Processing score: user={user_id}, score={score}")
+        logger.info(f"Skor işleniyor: kullanıcı={user_id}, skor={score}")
         
-        # Save score to normal table
+        # Skoru normal tabloya kaydet
         db.cur.execute(
             "INSERT INTO game_scores (user_id, session_id, score) VALUES (?, ?, ?)",
             (user_id, game_session, score)
         )
         db.conn.commit()
         
-        # Get total score
+        # Toplam skoru al
         db.cur.execute(
             "SELECT SUM(score) FROM game_scores WHERE user_id = ?",
             (user_id,)
@@ -214,25 +496,51 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = db.cur.fetchone()
         total_score = result[0] if result and result[0] else 0
         
-        # Get best score
+        # En yüksek skoru al
         user_best = db.get_user_best_score(user_id)
         
-        # Show completion message
+        # Bu skorla elde edilebilecek potansiyel ödülü hesapla
+        potential_reward = None
+        for threshold in sorted(REWARD_THRESHOLDS.keys()):
+            if total_score >= threshold:
+                potential_reward = {
+                    'threshold': threshold,
+                    'discount': REWARD_THRESHOLDS[threshold]
+                }
+        
+        # Tamamlama mesajını göster
+        message = f"""👏 Oyun tamamlandı! {score} puan kazandınız!
+
+🥇 En yüksek skorunuz: {user_best}
+💰 Toplam Puanınız: {total_score}"""
+
+        # Ödül bilgisi ekle
+        if potential_reward:
+            message += f"\n\n🎁 Şu anda %{potential_reward['discount']} indirim kuponuna hak kazandınız!"
+            message += "\n💡 Ödülünüzü almak için 'Ödüllerimi Talep Et' butonunu kullanın."
+        else:
+            # Sonraki ödüle ne kadar kaldığını göster
+            next_threshold = min([t for t in REWARD_THRESHOLDS.keys() if t > total_score], default=None)
+            if next_threshold:
+                message += f"\n\n💡 %{REWARD_THRESHOLDS[next_threshold]} indirim için {next_threshold - total_score} puana daha ihtiyacınız var."
+        
+        # Sonraki sıfırlama bilgisini ekle
+        next_reset = get_next_month_reset_date()
+        days_remaining = (next_reset - datetime.now()).days + 1
+        message += f"\n\n⚠️ Puanlarınız {days_remaining} gün sonra sıfırlanacak."
+        
         await context.bot.send_message(
             chat_id=user_id,
-            text=f"👏 Oyun tamamlandı! Bu oyunda {score} puan kazandınız!\n\n"
-                 f"🥇 En yüksek skorunuz: {user_best}\n"
-                 f"💰 Toplam Biriken Puanınız: {total_score}\n\n"
-                 f"💡 İpucu: Oynamaya devam ederek puanlarınızı toplayın ve özel ödüller kazanın!",
+            text=message,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🎮 Tekrar Oyna", callback_data='play_flappy_weed')],
-                [InlineKeyboardButton("🏆 Skor Tablosu", callback_data='show_leaderboard')],
+                [InlineKeyboardButton("🎁 Ödüllerimi Talep Et", callback_data='claim_rewards')],
                 [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
             ])
         )
         
     except Exception as e:
-        logger.error(f"Error in handle_game_score: {e}", exc_info=True)
+        logger.error(f"Skor işlenirken hata: {e}", exc_info=True)
         try:
             await context.bot.send_message(
                 chat_id=user_id,
@@ -244,28 +552,6 @@ async def handle_game_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except:
             pass
-        
-def check_reward_level(total_score: int) -> int:
-    """Toplam puana göre ödül seviyesini belirle
-    Seviye 0: 0-199 puan
-    Seviye 1: 200-499 puan
-    Seviye 2: 500-999 puan
-    Seviye 3: 1000-1499 puan
-    Seviye 4: 1500-1999 puan
-    Seviye 5: 2000+ puan
-    """
-    if total_score >= 2000:
-        return 5
-    elif total_score >= 1500:
-        return 4
-    elif total_score >= 1000:
-        return 3
-    elif total_score >= 500:
-        return 2
-    elif total_score >= 200:
-        return 1
-    else:
-        return 0
 
 async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Skor tablosunu göster"""
@@ -293,21 +579,39 @@ async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
                 message += f"{medal} {display_name}{is_you}: {score} puan\n"
             
-            # Add user's statistics if not in top 10
+            # Kullanıcı ilk 10'da değilse kendi bilgilerini ekle
             if user_id not in [uid for uid, _, *_ in scores]:
                 message += f"\n🎮 Senin en yüksek skorun: {user_best} puan"
             
-            message += f"\n\n💰 Toplam Biriken Puanın: {user_total}"
+            message += f"\n\n💰 Toplam Puanın: {user_total}"
             
-            # Add rewards information based on total score
-            reward_info = get_reward_info(user_total)
-            if reward_info:
-                message += f"\n\n🎁 {reward_info}"
+            # Potansiyel ödül bilgisini ekle
+            potential_reward = None
+            for threshold in sorted(REWARD_THRESHOLDS.keys()):
+                if user_total >= threshold:
+                    potential_reward = {
+                        'threshold': threshold,
+                        'discount': REWARD_THRESHOLDS[threshold]
+                    }
+            
+            if potential_reward:
+                message += f"\n\n🎁 Şu anda %{potential_reward['discount']} indirim kuponuna hak kazandınız!"
+            else:
+                # Sonraki ödüle ne kadar kaldığını göster
+                next_threshold = min([t for t in REWARD_THRESHOLDS.keys() if t > user_total], default=None)
+                if next_threshold:
+                    message += f"\n\n💡 %{REWARD_THRESHOLDS[next_threshold]} indirim için {next_threshold - user_total} puana daha ihtiyacınız var."
+            
+            # Sıfırlama bilgisini ekle
+            next_reset = get_next_month_reset_date()
+            days_remaining = (next_reset - datetime.now()).days + 1
+            message += f"\n\n⚠️ Puanlarınız {days_remaining} gün sonra sıfırlanacak."
         
         await update.callback_query.message.edit_text(
             text=message,
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🎮 Oyna", callback_data='play_flappy_weed')],
+                [InlineKeyboardButton("🎁 Ödüllerimi Talep Et", callback_data='claim_rewards')],
                 [InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')]
             ])
         )
@@ -320,18 +624,3 @@ async def show_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("🔙 Oyun Menüsü", callback_data='games_menu')
             ]])
         )
-        
-def get_reward_info(total_score: int) -> str:
-    """Get reward information based on total score"""
-    if total_score >= 2000:
-        return "2000+ Puan: Premium Ürün Hediyesi! 🎁"
-    elif total_score >= 1500:
-        return "1500+ Puan: %25 İndirim Kuponu 🏷️"
-    elif total_score >= 1000:
-        return "1000+ Puan: %15 İndirim Kuponu 🏷️"
-    elif total_score >= 500:
-        return "500+ Puan: %10 İndirim Kuponu 🏷️"
-    elif total_score >= 200:
-        return "200+ Puan: %5 İndirim Kuponu 🏷️"
-    else:
-        return f"Sonraki ödül için {200 - total_score} puan daha kazanmalısın"
