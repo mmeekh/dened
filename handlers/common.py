@@ -419,13 +419,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 logger.error(f"Error processing cart removal: {e}")
                 await update.callback_query.answer("Ürün sepetten kaldırılırken bir hata oluştu")
             return
-        elif query.data == 'enter_discount_code':
-            return await prompt_discount_code(update, context)
         elif query.data == 'show_my_coupons':
             await show_user_coupons(update, context)
             return
         elif query.data.startswith('use_coupon_'):
             await apply_coupon_from_list(update, context)
+            return
+        elif query.data == 'remove_discount':
+            try:
+                from handlers.user.cart import remove_discount
+                await remove_discount(update, context)
+            except ImportError:
+                # If not imported, define a simple inline version
+                if 'active_discount' in context.user_data:
+                    del context.user_data['active_discount']
+                await query.answer("✅ İndirim kaldırıldı", show_alert=True)
+                await show_cart(update, context)
             return
 
     except Exception as e:
@@ -447,7 +456,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_main_menu(update, context)
     except Exception as e:
         logger.error(f"Error in cancel command: {e}")
-        # Doğrudan menu_keyboard kullanarak mesaj göndermek yerine show_generic_menu kullanıyoruz
         from .menu import get_main_menu_keyboard
         await show_generic_menu(
             update=update,

@@ -14,18 +14,26 @@ from .user import (
     # User handlers
     show_products_menu,
     view_products,
-    show_cart,
-    handle_add_to_cart,
-    handle_cart_quantity,
     show_orders_menu,
     show_orders_by_status,
     show_order_details,
     show_payment_menu,
     show_payment_howto,
+    show_qr_code,
     handle_purchase_request,
     show_support_menu,
-    show_faq,
-    show_my_coupons  # Yeni eklendi
+    show_faq
+)
+
+from .user.cart import (
+    show_cart,
+    handle_add_to_cart,
+    handle_cart_quantity,
+    remove_discount,
+    prompt_discount_code,
+    handle_discount_code,
+    show_user_coupons,
+    apply_coupon_from_list
 )
 
 from .common import button_handler, cancel
@@ -40,27 +48,29 @@ __all__ = [
     'handle_wallet_input',
     'send_broadcast',
     'handle_purchase_approval',
-    
     # User handlers
     'show_products_menu',
     'view_products',
     'show_cart',
     'handle_add_to_cart',
     'handle_cart_quantity',
+    'remove_discount',
     'show_orders_menu',
     'show_orders_by_status',
     'show_order_details',
     'show_payment_menu',
     'show_payment_howto',
+    'show_qr_code',
     'handle_purchase_request',
     'show_support_menu',
     'show_faq',
-    'show_my_coupons',  # Yeni eklendi
-    
+    'prompt_discount_code',
+    'handle_discount_code',
+    'show_user_coupons',
+    'apply_coupon_from_list',
     # Common handlers
     'button_handler',
     'cancel',
-    
     # Menu handlers
     'start',
     'show_main_menu',

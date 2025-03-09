@@ -77,56 +77,6 @@ async def view_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
 
-async def show_cart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    cart_items = db.get_cart_items(user_id)
-
-    # Delete current message
-    try:
-        await update.callback_query.message.delete()
-    except Exception as e:
-        logger.error(f"Error deleting message: {e}")
-
-    # Clear any stored message IDs
-    context.user_data.pop('menu_message_id', None)
-    
-    if not cart_items:
-        keyboard = [[InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="🛒 Sepetiniz boş!",
-            reply_markup=reply_markup
-        )
-        return
-
-    total = sum(item[2] * item[3] for item in cart_items)  # price * quantity
-    total_items = sum(item[3] for item in cart_items)  # sum of quantities
-    
-    message = f"🛒 Sepetinizdeki Ürünler ({total_items} adet):\n\n"
-    keyboard = []
-    
-    for item in cart_items:
-        message += f"📦 {item[1]}\n"
-        message += f"💰 {item[2]} USDT (x{item[3]})\n"
-        message += f"Toplam: {item[2] * item[3]} USDT\n"
-        keyboard.append([
-            InlineKeyboardButton(f"❌ {item[1]}", callback_data=f'remove_cart_{item[0]}')
-        ])
-    
-    message += f"\n💰 Genel Toplam: {total} USDT"
-    
-    if cart_items:
-        keyboard.append([InlineKeyboardButton("💳 Satın Al", callback_data='request_purchase')])
-    keyboard.append([InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')])
-    
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=message,
-        reply_markup=reply_markup
-    )
-
 async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     
