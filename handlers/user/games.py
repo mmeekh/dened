@@ -102,21 +102,28 @@ async def show_games_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def get_next_month_reset_date():
-    """Bir sonraki ayın son gününü hesapla (sıfırlama tarihi)"""
+    """Mevcut ayın son gününü hesapla (sıfırlama tarihi)"""
     now = datetime.now()
-    # Bir sonraki ayın son gününü hesapla
-    if now.month == 12:
-        # Yılın son ayındaysak, bir sonraki yılın Ocak ayına geç
-        year = now.year + 1
-        month = 1
-    else:
-        year = now.year
-        month = now.month + 1
     
-    # O ayın son gününü bul
-    last_day = calendar.monthrange(year, month)[1]
+    # Bu ayın son gününü hesapla
+    last_day = calendar.monthrange(now.year, now.month)[1]
+    
     # Ayın son günü 23:59:59
-    return datetime(year, month, last_day, 23, 59, 59)
+    reset_date = datetime(now.year, now.month, last_day, 23, 59, 59)
+    
+    # Eğer bugün ayın son günüyse, bir sonraki ayın son gününü hesapla
+    if now.day == last_day:
+        if now.month == 12:
+            next_year = now.year + 1
+            next_month = 1
+        else:
+            next_year = now.year
+            next_month = now.month + 1
+            
+        next_last_day = calendar.monthrange(next_year, next_month)[1]
+        reset_date = datetime(next_year, next_month, next_last_day, 23, 59, 59)
+    
+    return reset_date
 
 async def claim_rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Kullanıcının puanlarına göre ödüllerini talep etmesini sağla"""
@@ -272,9 +279,43 @@ Bu kuponu alışverişinizde kullanabilirsiniz. Kuponlarınızı "Kuponlarım" m
         )
 
 async def reset_monthly_scores():
-    """Aylık skorları sıfırla (her ayın son günü çalıştırılır)"""
+    """Aylık skorları sıfırla"""
     try:
         logger.info("Aylık skor sıfırlama işlemi başlatılıyor...")
+        
+        # Tüm kullanıcılara bildirim gönder
+        try:
+            # Bir SQL sorgusu ile oyunu oynayan tüm kullanıcıları al
+            db.cur.execute("SELECT DISTINCT user_id FROM game_scores")
+            users = [row[0] for row in db.cur.fetchall()]
+            
+            # Tüm skorları kaydet (isteğe bağlı - raporlama için)
+            db.cur.execute("""
+                CREATE TABLE IF NOT EXISTS game_scores_history (
+                    month TEXT,
+                    user_id INTEGER,
+                    total_score INTEGER,
+                    best_score INTEGER,
+                    games_played INTEGER
+                )
+            """)
+            
+            # Her kullanıcı için istatistikleri kaydet
+            current_month = datetime.now().strftime('%Y-%m')
+            for user_id in users:
+                db.cur.execute("""
+                    INSERT INTO game_scores_history (month, user_id, total_score, best_score, games_played)
+                    SELECT 
+                        ?, 
+                        ?, 
+                        SUM(score), 
+                        MAX(score), 
+                        COUNT(*)
+                    FROM game_scores 
+                    WHERE user_id = ?
+                """, (current_month, user_id, user_id))
+        except Exception as e:
+            logger.error(f"Skor geçmişi kaydedilirken hata: {e}")
         
         # Tüm puanları sıfırla
         db.cur.execute("DELETE FROM game_scores")
@@ -292,43 +333,44 @@ async def schedule_monthly_reset(bot):
     
     while True:
         try:
-            # Bir sonraki ayın sıfırlama tarihini hesapla
+            # Sıfırlama tarihini hesapla (mevcut ayın son günü)
             next_reset = get_next_month_reset_date()
             
             # Şu anki tarih ile aradaki farkı hesapla
             now = datetime.now()
             time_delta = next_reset - now
             
-            if time_delta.total_seconds() > 0:
-                # Sıfırlama zamanına kadar bekle
-                logger.info(f"Bir sonraki sıfırlama: {next_reset.strftime('%Y-%m-%d %H:%M:%S')} "
-                          f"({time_delta.days} gün, {time_delta.seconds // 3600} saat sonra)")
-                
-                # Sıfırlamadan 2 gün önce tüm kullanıcılara bildirim gönder
-                if time_delta.days <= 2 and time_delta.days > 1:
-                    await send_reset_notifications(bot)
-                
-                # 1 saat sonra tekrar kontrol et
-                await asyncio.sleep(3600)
+            is_last_day_of_month = now.day == calendar.monthrange(now.year, now.month)[1]
+            hours_left_today = 24 - now.hour
+            
+            logger.info(f"Bir sonraki sıfırlama: {next_reset.strftime('%Y-%m-%d %H:%M:%S')} "
+                      f"({time_delta.days} gün, {time_delta.seconds // 3600} saat sonra)")
+            
+            if time_delta.days <= 2 and time_delta.days > 1:
+                await send_reset_notifications(bot)
+            
+            if is_last_day_of_month and hours_left_today <= 1:
+                if time_delta.total_seconds() <= 600:  # 10 dakika = 600 saniye
+                    logger.info("Aylık sıfırlama zamanı geldi, işlem başlatılıyor...")
+                    await reset_monthly_scores()
+                    
+
+                    await asyncio.sleep(3600)
+                else:
+                    await asyncio.sleep(900)
             else:
-                # Sıfırlama zamanı geldi
-                logger.info("Aylık sıfırlama zamanı geldi, işlem başlatılıyor...")
-                
-                # Sıfırlamayı gerçekleştir
-                await reset_monthly_scores()
-                
-                # 1 saat bekle ve tekrar kontrol et
                 await asyncio.sleep(3600)
-        
+                
+        except asyncio.CancelledError:
+            logger.info("Sıfırlama zamanlayıcısı iptal edildi")
+            return  # Görev iptal edildiğinde temiz çıkış
         except Exception as e:
             logger.error(f"Sıfırlama zamanlayıcısında hata: {e}")
-            # Hata durumunda 1 saat bekle ve tekrar dene
             await asyncio.sleep(3600)
 
 async def send_reset_notifications(bot):
     """Tüm aktif kullanıcılara sıfırlama bildirimi gönder"""
     try:
-        # Son 30 gün içinde oyun oynamış aktif kullanıcıları bul
         db.cur.execute("""
             SELECT DISTINCT user_id 
             FROM game_scores 
