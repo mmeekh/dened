@@ -33,7 +33,6 @@ from handlers.admin.wallets import handle_wallet_input
 from handlers.admin.locations import handle_location_photo
 from handlers.user.cart import handle_discount_code
 from handlers import (
-    # Admin handlers
     manage_products,
     manage_users,
     manage_wallets,
@@ -41,7 +40,6 @@ from handlers import (
     send_broadcast,
     handle_purchase_approval,
     
-    # User handlers
     show_products_menu,
     view_products,
     show_cart,
@@ -66,7 +64,6 @@ from handlers import (
 from database import Database
 from states import *
 
-# Logging yapılandırması
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO,
@@ -77,20 +74,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Global değişkenler
 db = Database(DB_NAME)
 application = None
 tasks = []
 
-# Monitoring görevleri
 async def start_monitoring():
-    """Cüzdan havuzu monitoring görevi"""
     while True:
         try:
             available_wallets = db.get_available_wallet_count()
             total_wallets = db.get_total_wallet_count()
             
-            # Eğer müsait cüzdanlar toplam cüzdanların %20'sinden azsa admin'e bildir
             if total_wallets > 0 and available_wallets / total_wallets < 0.2:
                 await application.bot.send_message(
                     chat_id=ADMIN_ID,
@@ -101,32 +94,28 @@ async def start_monitoring():
                 )
         except asyncio.CancelledError:
             logger.info("Cüzdan monitoring görevi iptal edildi")
-            return  # Görev iptal edildiğinde temiz çıkış
+            return
         except Exception as e:
             logger.error(f"Error in wallet pool monitoring: {e}")
             
         try:
-            # 6 saatte bir kontrol et
             await asyncio.sleep(6 * 60 * 60)
         except asyncio.CancelledError:
             logger.info("Cüzdan monitoring görevi uyku sırasında iptal edildi")
-            return  # Uyku sırasında iptal edilirse temiz çıkış
+            return
 
 async def start_locations_monitoring():
-    """Konum havuzu monitoring görevi"""
     while True:
         try:
-            # Tüm ürünleri al
             products = db.get_products()
             
             for product in products:
                 product_id = product[0]
                 product_name = product[1]
                 
-                # Bu ürün için müsait konum sayısını kontrol et
                 available_locations = db.get_available_location_count(product_id)
                 
-                if available_locations < 3:  # 3'ten az konum kaldıysa uyarı ver
+                if available_locations < 3:
                     await application.bot.send_message(
                         chat_id=ADMIN_ID,
                         text=f"⚠️ Konum Havuzu Uyarısı!\n\n"
@@ -136,121 +125,81 @@ async def start_locations_monitoring():
                     )
         except asyncio.CancelledError:
             logger.info("Konum monitoring görevi iptal edildi")
-            return  # Görev iptal edildiğinde temiz çıkış
+            return
         except Exception as e:
             logger.error(f"Error in location pool monitoring: {e}")
         
         try:
-            # 12 saatte bir kontrol et
             await asyncio.sleep(12 * 60 * 60)
         except asyncio.CancelledError:
             logger.info("Konum monitoring görevi uyku sırasında iptal edildi")
-            return  # Uyku sırasında iptal edilirse temiz çıkış
+            return
 
 async def start_game_monitoring():
-    """Oyun puanlarının aylık sıfırlanmasını takip et"""
     try:
         from handlers.user.games import schedule_monthly_reset
         
-        # Aylık sıfırlama zamanını takip edecek görevi başlat
         game_task = asyncio.create_task(schedule_monthly_reset(application.bot))
         game_task.set_name("Game-Score-Reset")
-        tasks.append(game_task)  # Make sure this uses the global tasks list
+        tasks.append(game_task)
         logger.info("Aylık oyun skoru sıfırlama görevi başlatıldı")
     except Exception as e:
         logger.error(f"Error starting game monitoring: {e}")
 
 async def handle_shutdown():
-    """Handles cleanup tasks during shutdown"""
     logger.info("Shutting down bot gracefully...")
 
-    # Cancel all running tasks
-    global tasks
     for task in tasks:
         if not task.done() and not task.cancelled():
             logger.info(f"Cancelling task: {task.get_name()}")
             task.cancel()
     
-    # Wait for all tasks to complete their cancellation
     if tasks:
         logger.info(f"Waiting for {len(tasks)} tasks to complete cancellation...")
         await asyncio.gather(*tasks, return_exceptions=True)
         logger.info("All tasks have been properly canceled")
 
-    # Close database connection
     if db:
         db.close()
         logger.info("Database connection closed")
 
     logger.info("Shutdown complete")
 
-async def cleanup_messages(application: Application):
-    """Bot kapatılırken tüm mesajları temizle"""
-    try:
-        # Tüm kullanıcıları veritabanından al
-        users = db.get_all_users()
+async def setup_signal_handlers():
+    if platform.system() != 'Windows':
+        loop = asyncio.get_running_loop()
         
-        for user_id in users:
-            try:
-                # Sohbet geçmişini al ve bot mesajlarını sil
-                messages = []
-                async for message in application.bot.get_chat_history(user_id, limit=100):
-                    if message.from_user and message.from_user.id == application.bot.id:
-                        messages.append(message.message_id)
-                
-                # Mesajları daha küçük parçalar halinde sil (rate limitleri aşmamak için)
-                for i in range(0, len(messages), 10):
-                    chunk = messages[i:i + 10]
-                    for msg_id in chunk:
-                        try:
-                            await application.bot.delete_message(chat_id=user_id, message_id=msg_id)
-                        except Exception as e:
-                            logger.error(f"Error deleting message {msg_id} for user {user_id}: {e}")
-                    await asyncio.sleep(1)  # Parçalar arasında küçük bir gecikme
-                
-            except Exception as e:
-                logger.error(f"Error cleaning messages for user {user_id}: {e}")
-                continue
-                
-        logger.info("Successfully cleaned up bot messages")
-    except Exception as e:
-        logger.error(f"Error in cleanup process: {e}")
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(
+                sig,
+                lambda: asyncio.create_task(shutdown(application))
+            )
+        logger.info("Signal handlers set up")
 
-async def shutdown(application: Application):
-    """Perform cleanup operations when shutting down the bot."""
-    logger.info("Starting cleanup process...")
-
+async def shutdown(application):
+    logger.info("Starting shutdown process...")
+    
     try:
-        # Clean up messages before shutting down
-        await cleanup_messages(application)
-        logger.info("Message cleanup completed successfully.")
-
-        # Stop the application
-        await application.stop()
-        logger.info("Application stopped successfully.")
-
-        # Perform additional cleanup if necessary
-        await application.shutdown()
-        logger.info("Application shutdown completed.")
-
+        await handle_shutdown()
+        
+        if application:
+            await application.stop()
+            await application.shutdown()
+            logger.info("Application stopped and shutdown completed")
+            
     except Exception as e:
-        logger.error(f"Error during shutdown process: {e}")
+        logger.error(f"Error during shutdown: {e}")
 
-
-# Ana program
 if __name__ == '__main__':
     try:
         logger.info("Starting bot initialization...")
 
-        # Ürünler dizininin varlığını kontrol et
         os.makedirs(PRODUCTS_DIR, exist_ok=True)
         logger.info(f"Products directory ensured at {PRODUCTS_DIR}")
         
-        # Konumlar dizininin varlığını kontrol et
         os.makedirs(LOCATIONS_DIR, exist_ok=True)
         logger.info(f"Locations directory ensured at {LOCATIONS_DIR}")
 
-        # Bot'u başlat
         application = (
             Application.builder()
             .token(BOT_TOKEN)
@@ -261,6 +210,7 @@ if __name__ == '__main__':
             .build()
         )
         logger.info("Bot application initialized")
+        
         conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('start', start),
@@ -297,23 +247,23 @@ if __name__ == '__main__':
         application.add_handler(conv_handler)
         logger.info("Handlers added to application")
         
-        # Event loop
         loop = asyncio.get_event_loop()
         asyncio.set_event_loop(loop)
         
-        # Monitoring görevlerini başlat
         wallet_task = loop.create_task(start_monitoring())
+        wallet_task.set_name("Wallet-Monitoring")
         tasks.append(wallet_task)
         
         location_task = loop.create_task(start_locations_monitoring())
+        location_task.set_name("Location-Monitoring")
         tasks.append(location_task)
         
         game_monitoring_task = loop.create_task(start_game_monitoring())
         tasks.append(game_monitoring_task)
         
-        logger.info("Monitoring tasks started")
+        loop.create_task(setup_signal_handlers())
         
-        # Bot'un çalışmasını başlat
+        logger.info("Monitoring tasks started")
         logger.info("Starting bot polling...")
         application.run_polling(allowed_updates=Update.ALL_TYPES)
 
@@ -321,7 +271,6 @@ if __name__ == '__main__':
         print("\nBot kapatılıyor... Lütfen bekleyin.")
         logger.info("Bot kullanıcı tarafından durduruldu")
         try:
-            # Event loop'u al veya oluştur
             loop = asyncio.get_event_loop()
             if not loop.is_closed():
                 loop.run_until_complete(handle_shutdown())

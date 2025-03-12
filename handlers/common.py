@@ -306,7 +306,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         # User handler işlemleri
         elif query.data == 'products_menu':
-            await show_products_menu(update, context)
+            await view_products(update, context)
             return
         elif query.data == 'view_products':
             await view_products(update, context)
