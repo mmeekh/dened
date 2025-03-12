@@ -80,7 +80,7 @@ logger = logging.getLogger(__name__)
 # Global değişkenler
 db = Database(DB_NAME)
 application = None
-tasks = []  # Tüm oluşturulan görevleri bu listede saklayacağız
+tasks = []
 
 # Monitoring görevleri
 async def start_monitoring():
@@ -149,33 +149,40 @@ async def start_locations_monitoring():
 
 async def start_game_monitoring():
     """Oyun puanlarının aylık sıfırlanmasını takip et"""
-    from handlers.user.games import schedule_monthly_reset
-    
-    # Aylık sıfırlama zamanını takip edecek görevi başlat
-    game_task = asyncio.create_task(schedule_monthly_reset(application.bot))
-    tasks.append(game_task)  # Görevi listeye ekle
-    logger.info("Aylık oyun skoru sıfırlama görevi başlatıldı")
+    try:
+        from handlers.user.games import schedule_monthly_reset
+        
+        # Aylık sıfırlama zamanını takip edecek görevi başlat
+        game_task = asyncio.create_task(schedule_monthly_reset(application.bot))
+        game_task.set_name("Game-Score-Reset")
+        tasks.append(game_task)  # Make sure this uses the global tasks list
+        logger.info("Aylık oyun skoru sıfırlama görevi başlatıldı")
+    except Exception as e:
+        logger.error(f"Error starting game monitoring: {e}")
 
-# Kapatma ve temizleme fonksiyonları
 async def handle_shutdown():
     """Handles cleanup tasks during shutdown"""
-    logger.info("Shutting down bot...")
+    logger.info("Shutting down bot gracefully...")
 
     # Cancel all running tasks
-    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    global tasks
     for task in tasks:
-        task.cancel()
+        if not task.done() and not task.cancelled():
+            logger.info(f"Cancelling task: {task.get_name()}")
+            task.cancel()
     
-    logger.info(f"Cancelled {len(tasks)} pending tasks")
-
-    # Wait for all tasks to finish
-    try:
+    # Wait for all tasks to complete their cancellation
+    if tasks:
+        logger.info(f"Waiting for {len(tasks)} tasks to complete cancellation...")
         await asyncio.gather(*tasks, return_exceptions=True)
-    except Exception as e:
-        logger.error(f"Error while shutting down tasks: {e}")
+        logger.info("All tasks have been properly canceled")
+
+    # Close database connection
+    if db:
+        db.close()
+        logger.info("Database connection closed")
 
     logger.info("Shutdown complete")
-
 
 async def cleanup_messages(application: Application):
     """Bot kapatılırken tüm mesajları temizle"""
@@ -254,8 +261,6 @@ if __name__ == '__main__':
             .build()
         )
         logger.info("Bot application initialized")
-        
-        # Conversation handler tanımlama
         conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('start', start),
@@ -293,7 +298,7 @@ if __name__ == '__main__':
         logger.info("Handlers added to application")
         
         # Event loop
-        loop = asyncio.new_event_loop()
+        loop = asyncio.get_event_loop()
         asyncio.set_event_loop(loop)
         
         # Monitoring görevlerini başlat

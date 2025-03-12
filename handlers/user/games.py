@@ -1,6 +1,7 @@
 import uuid
 import logging
 import json
+import asyncio
 import random
 import calendar
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -329,44 +330,54 @@ async def reset_monthly_scores():
 
 async def schedule_monthly_reset(bot):
     """Aylık sıfırlama zamanlayıcısını başlat"""
-    import asyncio
-    
-    while True:
-        try:
-            # Sıfırlama tarihini hesapla (mevcut ayın son günü)
-            next_reset = get_next_month_reset_date()
-            
-            # Şu anki tarih ile aradaki farkı hesapla
-            now = datetime.now()
-            time_delta = next_reset - now
-            
-            is_last_day_of_month = now.day == calendar.monthrange(now.year, now.month)[1]
-            hours_left_today = 24 - now.hour
-            
-            logger.info(f"Bir sonraki sıfırlama: {next_reset.strftime('%Y-%m-%d %H:%M:%S')} "
-                      f"({time_delta.days} gün, {time_delta.seconds // 3600} saat sonra)")
-            
-            if time_delta.days <= 2 and time_delta.days > 1:
-                await send_reset_notifications(bot)
-            
-            if is_last_day_of_month and hours_left_today <= 1:
-                if time_delta.total_seconds() <= 600:  # 10 dakika = 600 saniye
-                    logger.info("Aylık sıfırlama zamanı geldi, işlem başlatılıyor...")
-                    await reset_monthly_scores()
-                    
-
-                    await asyncio.sleep(3600)
-                else:
-                    await asyncio.sleep(900)
-            else:
-                await asyncio.sleep(3600)
+    try:
+        while True:
+            try:
+                # Sıfırlama tarihini hesapla (mevcut ayın son günü)
+                next_reset = get_next_month_reset_date()
                 
-        except asyncio.CancelledError:
-            logger.info("Sıfırlama zamanlayıcısı iptal edildi")
-            return  # Görev iptal edildiğinde temiz çıkış
-        except Exception as e:
-            logger.error(f"Sıfırlama zamanlayıcısında hata: {e}")
-            await asyncio.sleep(3600)
+                # Şu anki tarih ile aradaki farkı hesapla
+                now = datetime.now()
+                time_delta = next_reset - now
+                
+                is_last_day_of_month = now.day == calendar.monthrange(now.year, now.month)[1]
+                hours_left_today = 24 - now.hour
+                
+                logger.info(f"Bir sonraki sıfırlama: {next_reset.strftime('%Y-%m-%d %H:%M:%S')} "
+                          f"({time_delta.days} gün, {time_delta.seconds // 3600} saat sonra)")
+                
+                if time_delta.days <= 2 and time_delta.days > 1:
+                    await send_reset_notifications(bot)
+                
+                if is_last_day_of_month and hours_left_today <= 1:
+                    if time_delta.total_seconds() <= 600:  # 10 dakika = 600 saniye
+                        logger.info("Aylık sıfırlama zamanı geldi, işlem başlatılıyor...")
+                        await reset_monthly_scores()
+                        
+                        await asyncio.sleep(3600)
+                    else:
+                        await asyncio.sleep(900)
+                else:
+                    await asyncio.sleep(3600)
+                    
+            except asyncio.CancelledError:
+                logger.info("Sıfırlama zamanlayıcısı iptal edildi")
+                return  # Görev iptal edildiğinde temiz çıkış
+            except Exception as e:
+                logger.error(f"Sıfırlama zamanlayıcısında hata: {e}")
+                try:
+                    await asyncio.sleep(3600)
+                except asyncio.CancelledError:
+                    logger.info("Sıfırlama zamanlayıcısı uyku sırasında iptal edildi")
+                    return  # Uyku sırasında iptal edilirse temiz çıkış
+    except asyncio.CancelledError:
+        logger.info("Monthly reset scheduler task cancelled")
+        return
+    except Exception as e:
+        logger.error(f"Unexpected error in schedule_monthly_reset: {e}")
+    finally:
+        logger.info("Monthly reset scheduler task completed")
+
 
 async def send_reset_notifications(bot):
     """Tüm aktif kullanıcılara sıfırlama bildirimi gönder"""

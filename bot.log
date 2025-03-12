@@ -64,3 +64,38 @@ task: <Task pending name='Task-1' coro=<start_monitoring() running at C:\Users\m
 task: <Task pending name='Task-2' coro=<start_locations_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:145> wait_for=<Future pending cb=[Task.task_wakeup()]>>
 2025-03-12 11:34:02,679 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task pending name='Task-5' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:362> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-12 12:39:47,119 - __main__ - INFO - Starting bot initialization...
+2025-03-12 12:39:47,119 - __main__ - INFO - Products directory ensured at products
+2025-03-12 12:39:47,119 - __main__ - INFO - Locations directory ensured at locations
+2025-03-12 12:39:47,119 - database.core - INFO - Connected to database: shop.db
+2025-03-12 12:39:47,120 - database.core - INFO - Game-related database tables created successfully
+2025-03-12 12:39:47,411 - __main__ - INFO - Bot application initialized
+2025-03-12 12:39:47,414 - __main__ - INFO - Conversation handler added
+2025-03-12 12:39:47,449 - __main__ - ERROR - Bot initialization failed: 
+Traceback (most recent call last):
+  File "C:\Users\muham\OneDrive\Desktop\dened\bot.py", line 342, in main
+    setup_signal_handlers(loop, application)
+  File "C:\Users\muham\OneDrive\Desktop\dened\bot.py", line 268, in setup_signal_handlers
+    loop.add_signal_handler(sig, signal_handler)
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\asyncio\events.py", line 578, in add_signal_handler
+    raise NotImplementedError
+NotImplementedError
+2025-03-12 12:39:47,449 - database.core - INFO - Database connection closed
+2025-03-12 12:39:47,449 - __main__ - INFO - Database connection closed
+2025-03-12 12:43:10,519 - database.core - INFO - Connected to database: shop.db
+2025-03-12 12:43:10,520 - database.core - INFO - Game-related database tables created successfully
+2025-03-12 12:43:10,521 - __main__ - INFO - Starting bot initialization...
+2025-03-12 12:43:10,521 - __main__ - INFO - Products directory ensured at products
+2025-03-12 12:43:10,521 - __main__ - INFO - Locations directory ensured at locations
+2025-03-12 12:43:10,799 - __main__ - INFO - Bot application initialized
+2025-03-12 12:43:10,800 - __main__ - INFO - Handlers added to application
+2025-03-12 12:43:10,801 - __main__ - INFO - Monitoring tasks started
+2025-03-12 12:43:10,801 - __main__ - INFO - Starting bot polling...
+2025-03-12 12:43:10,813 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-12 12:43:10,813 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (19 gün, 11 saat sonra)
+2025-03-12 12:43:11,025 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-12 12:43:11,086 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-12 12:43:11,090 - telegram.ext.Application - INFO - Application started
+2025-03-12 12:43:12,820 - __main__ - INFO - Bot kullanıcı tarafından durduruldu
+2025-03-12 12:43:12,820 - database.core - INFO - Database connection closed
+2025-03-12 12:43:12,821 - __main__ - INFO - Database connection closed
