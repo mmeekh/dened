@@ -17,7 +17,7 @@ from .products import (
 )
 from .order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 from .users import manage_users
-from .wallets import manage_wallets, add_wallet, list_wallets
+from .wallets import manage_wallets, add_wallet, list_wallets, release_all_wallets
 from .locations import manage_locations, add_location, list_locations, handle_location_photo
 from .categories import (
     manage_categories,

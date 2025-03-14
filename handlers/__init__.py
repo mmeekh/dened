@@ -48,6 +48,7 @@ __all__ = [
     'handle_wallet_input',
     'send_broadcast',
     'handle_purchase_approval',
+    'release_all_wallets'
     # User handlers
     'show_products_menu',
     'view_products',

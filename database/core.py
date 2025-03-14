@@ -53,8 +53,9 @@ class Database:
             
             # Kullanıcıya atanmış bir cüzdan varsa onu döndür
             if result:
+                logger.info(f"Returning previously assigned wallet for user {user_id}: {result[0]}")
                 return result[0]
-                
+                    
             # Yoksa yeni bir cüzdan ata
             self.cur.execute("BEGIN TRANSACTION")
             
@@ -68,8 +69,9 @@ class Database:
             result = self.cur.fetchone()
             if not result:
                 self.cur.execute("ROLLBACK")
+                logger.warning(f"No available wallets found for new assignment to user {user_id}")
                 return None
-                
+                    
             wallet_id, address = result
             
             # Cüzdanı kullanımda olarak işaretle
@@ -87,9 +89,9 @@ class Database:
             
             self.cur.execute("COMMIT")
             self.conn.commit()
-            logger.info(f"Wallet {address} assigned to user {user_id}")
+            logger.info(f"New wallet {address} assigned permanently to user {user_id}")
             return address
-            
+                
         except Exception as e:
             logger.error(f"Error assigning wallet to user: {e}")
             try:
@@ -97,6 +99,7 @@ class Database:
             except:
                 pass
             return None
+
     def get_all_users_with_stats(self) -> List[Tuple]:
         """Get all users with their statistics"""
         try:
@@ -688,50 +691,66 @@ class Database:
             return False
             
     def get_available_wallet(self) -> Optional[str]:
-        """Get an available wallet and mark it as in use"""
+        """
+        Kullanılabilir bir cüzdan bulup döndürür.
+        Eğer kullanılabilir cüzdan yoksa None döndürür.
+        """
         try:
             self.cur.execute("BEGIN TRANSACTION")
             
+            # Önce kullanılmayan (in_use=0) cüzdanları kontrol et
             self.cur.execute(
                 """SELECT id, address 
-                   FROM wallets 
-                   WHERE in_use = 0 
-                   LIMIT 1"""
+                FROM wallets 
+                WHERE in_use = 0 
+                LIMIT 1"""
             )
             result = self.cur.fetchone()
             if not result:
+                logger.warning("No available wallets found. All wallets are in use.")
                 self.cur.execute("ROLLBACK")
                 return None
                 
             wallet_id, address = result
             
+            # Cüzdanı kullanıma işaretle
             self.cur.execute(
                 "UPDATE wallets SET in_use = 1 WHERE id = ? AND in_use = 0",
                 (wallet_id,)
             )
             
             if self.cur.rowcount == 0:
-                # Another process got the wallet first
+                # Başka bir işlem tarafından alınmış olabilir
                 self.cur.execute("ROLLBACK")
+                logger.warning(f"Wallet {wallet_id} was taken by another process.")
                 return None
             
+            # İşlemi tamamla
             self.cur.execute("COMMIT")
             self.conn.commit()
-            logger.info(f"Successfully assigned wallet: {address}")
+            logger.info(f"Wallet assigned: {address}")
             return address
             
         except Exception as e:
-            logger.error(f"Error getting available wallet: {e}. Rolling back transaction.")
-            self.cur.execute("ROLLBACK")
-            
+            logger.error(f"Error getting available wallet: {e}")
+            try:
+                self.cur.execute("ROLLBACK")
+            except Exception:
+                pass
+            return None
+
     def release_wallet(self, address: str) -> bool:
-        """Mark a wallet as available"""
+        """
+        Kullanılmış bir cüzdanı serbest bırakır.
+        Ödeme işlemi tamamlandıktan sonra çağrılmalıdır.
+        """
         try:
             self.cur.execute(
                 "UPDATE wallets SET in_use = 0 WHERE address = ?",
                 (address,)
             )
             self.conn.commit()
+            logger.info(f"Wallet released: {address}")
             return True
         except Exception as e:
             logger.error(f"Error releasing wallet: {e}")
@@ -789,13 +808,33 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting notification message ID: {e}")
             return None        
-    def get_all_wallets(self) -> List[Tuple]:
-        """Get all wallets with their status"""
+    def get_all_wallets(self) -> list:
+        """
+        Tüm cüzdanları, kullanıcı bilgileriyle birlikte getirir
+        """
         try:
-            self.cur.execute("SELECT * FROM wallets ORDER BY in_use ASC")
+            self.cur.execute("""
+                SELECT 
+                    w.id, 
+                    w.address, 
+                    w.in_use,
+                    u.telegram_id as user_id,
+                    (SELECT COUNT(*) FROM purchase_requests WHERE wallet = w.address) as usage_count,
+                    (SELECT 
+                        CASE 
+                            WHEN COUNT(*) > 0 THEN MAX(created_at) 
+                            ELSE NULL 
+                        END 
+                    FROM purchase_requests WHERE wallet = w.address) as last_used_date
+                FROM wallets w
+                LEFT JOIN purchase_requests pr ON w.address = pr.wallet AND pr.status = 'pending'
+                LEFT JOIN users u ON pr.user_id = u.telegram_id
+                GROUP BY w.id, w.address, w.in_use
+                ORDER BY w.in_use DESC, last_used_date DESC
+            """)
             return self.cur.fetchall()
         except Exception as e:
-            logger.error(f"Error getting wallets: {e}")
+            logger.error(f"Error getting wallets with user info: {e}")
             return []
             
     def get_available_wallet_count(self) -> int:
@@ -844,12 +883,20 @@ class Database:
             logger.error(f"Error adding location: {e}")
             return False
             
-    def get_available_location(self, product_id: int) -> Optional[str]:
-        """Get an available location and mark it as used"""
+    def get_available_location(self, product_id: int) -> str:
+        """
+        Ürün için kullanılabilir bir konum bulur ve veritabanından siler
+        
+        Args:
+            product_id: Ürün ID'si
+            
+        Returns:
+            str: Konum dosyasının yolu veya None
+        """
         try:
             self.cur.execute("BEGIN TRANSACTION")
             
-            # Önce ürün ID'sine göre müsait konum var mı kontrol et
+            # Ürün ID'sine göre müsait konum bul
             self.cur.execute(
                 """SELECT id, image_path 
                 FROM locations 
@@ -860,31 +907,26 @@ class Database:
             result = self.cur.fetchone()
             
             if not result:
-                # Hiç müsait konum yoksa işlemi geri al
+                # Müsait konum yoksa işlemi geri al
                 self.cur.execute("ROLLBACK")
                 logger.warning(f"No available location for product {product_id}")
                 return None
                 
             location_id, image_path = result
             
-            # Konumu kullanıldı olarak işaretle
+            # Konumu veritabanından sil (eskiden is_used=1 yapıyordu)
             self.cur.execute(
-                "UPDATE locations SET is_used = 1 WHERE id = ? AND is_used = 0",
+                "DELETE FROM locations WHERE id = ?",
                 (location_id,)
             )
-            
-            if self.cur.rowcount == 0:
-                # Başka bir işlem konumu alırsa işlemi geri al
-                self.cur.execute("ROLLBACK")
-                logger.warning(f"Location {location_id} was already in use")
-                return None
             
             # İşlemi onayla
             self.cur.execute("COMMIT")
             self.conn.commit()
-            logger.info(f"Successfully assigned location {image_path} for product {product_id}")
-            return image_path
+            logger.info(f"Successfully assigned and will delete location {image_path} for product {product_id}")
             
+            return image_path
+                
         except Exception as e:
             logger.error(f"Error getting available location: {e}")
             try:
@@ -892,6 +934,7 @@ class Database:
             except:
                 pass
             return None
+
     def get_available_location_count(self, product_id: int) -> int:
         """Get count of available locations for a product"""
         try:

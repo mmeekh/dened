@@ -137,8 +137,10 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         wallet = active_request.get('wallet')
         logger.info(f"Reusing existing wallet {wallet} for user {user_id}")
     else:
-        logger.info("Getting available wallet")
-        wallet = db.get_available_wallet()
+        # Burada get_available_wallet yerine assign_wallet_to_user kullanıyoruz
+        # Böylece kullanıcıya kalıcı olarak bir cüzdan atanacak
+        logger.info(f"Assigning permanent wallet to user {user_id}")
+        wallet = db.assign_wallet_to_user(user_id)
         
         if not wallet:
             logger.error("No available wallet found")
@@ -180,7 +182,6 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     logger.info(f"Cleared cart for user {user_id}")
     
     # Rest of your existing handle_purchase_request function...
-    # (Notify admin, create QR code, show confirmation to user, etc.)
     
     # Notify admin with discount information
     admin_message = f"🛍️ Yeni Satın Alma Talebi #{request_id}\n\n"
@@ -242,7 +243,9 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
 • Tam tutarı tek seferde gönderin
 • QR kodu Binance uygulamasında okutabilirsiniz
 • Ödeme sonrası 5-10 dk bekleyin
-• Farklı tutar/ağ kullanmayın!"""
+• Farklı tutar/ağ kullanmayın!
+
+👤 Bu cüzdan sizin için ayrılmıştır, tüm ödemelerinizde aynı adresi kullanacaksınız."""
     
     reply_markup = InlineKeyboardMarkup([
         [InlineKeyboardButton("📋 Cüzdanı Kopyala", callback_data=f'copy_wallet_{wallet}')],

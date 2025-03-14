@@ -37,6 +37,7 @@ from .admin import (
     show_performance_stats,
     start_broadcast,
     handle_purchase_approval,
+    release_all_wallets,
     show_pending_purchases
 )
 from .admin.products import (
@@ -97,7 +98,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == 'main_menu':
             await show_main_menu(update, context)
             return ConversationHandler.END
-            
+        elif query.data == 'release_all_wallets':
+            await release_all_wallets(update, context)
+            return
         # Çıkış yap
         elif query.data == 'exit':
             await show_generic_menu(

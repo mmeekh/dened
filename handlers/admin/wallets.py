@@ -8,16 +8,52 @@ logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def manage_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show wallet management menu"""
-    # Get wallet statistics
-    available_count = db.get_available_wallet_count()
-    in_use_count = db.get_in_use_wallet_count()
-    total_count = db.get_total_wallet_count()
+    """Show improved wallet management menu with accurate counts"""
+    # Doğru cüzdan istatistiklerini hesapla
+    try:
+        # Kullanıcılara atanmış cüzdan sayısını al (user_wallets tablosundan)
+        db.cur.execute("SELECT COUNT(DISTINCT wallet_id) FROM user_wallets")
+        assigned_wallets = db.cur.fetchone()[0] or 0
+        
+        # Toplam cüzdan sayısını al
+        db.cur.execute("SELECT COUNT(*) FROM wallets")
+        total_wallets = db.cur.fetchone()[0] or 0
+        
+        # İşlemde olan ama kullanıcıya atanmamış cüzdanları bul
+        db.cur.execute("""
+            SELECT COUNT(*) FROM wallets w
+            WHERE w.in_use = 1
+            AND NOT EXISTS (
+                SELECT 1 FROM user_wallets uw 
+                WHERE uw.wallet_id = w.id
+            )
+        """)
+        temporary_in_use = db.cur.fetchone()[0] or 0
+        
+        # Gerçekten müsait olan cüzdan sayısı
+        available_wallets = total_wallets - assigned_wallets - temporary_in_use
+    except Exception as e:
+        logger.error(f"Error calculating wallet stats: {e}")
+        # Sorun durumunda eski yönteme geri dön
+        available_wallets = db.get_available_wallet_count()
+        temporary_in_use = db.get_in_use_wallet_count()
+        total_wallets = db.get_total_wallet_count()
+        assigned_wallets = 0  # Bunu bilemeyiz sorun olunca
+    
+    # Müsait cüzdan kalmadıysa uyarı
+    warning = ""
+    if available_wallets == 0:
+        warning = "\n\n⚠️ DİKKAT: Müsait cüzdan kalmadı! Acilen yeni cüzdan ekleyin."
+    elif available_wallets < 5:
+        warning = f"\n\n⚠️ Uyarı: Sadece {available_wallets} müsait cüzdan kaldı. Yeni cüzdan eklemeniz önerilir."
     
     keyboard = [
         [
             InlineKeyboardButton("➕ Cüzdan Ekle", callback_data='add_wallet'),
             InlineKeyboardButton("📋 Cüzdanları Listele", callback_data='list_wallets')
+        ],
+        [
+            InlineKeyboardButton("🔄 Cüzdanları Serbest Bırak", callback_data='release_all_wallets')
         ],
         [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
     ]
@@ -25,11 +61,14 @@ async def manage_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = f"""👛 Cüzdan Havuzu Yönetimi
 
 📊 Cüzdan İstatistikleri:
-✅ Müsait Cüzdan: {available_count}
-🔄 Kullanımda: {in_use_count}
-📊 Toplam: {total_count}
+🟢 Müsait Cüzdan: {available_wallets}
+👤 Kullanıcıya Atanmış: {assigned_wallets}
+🔴 Geçici Kullanımda: {temporary_in_use}
+📊 Toplam: {total_wallets}{warning}
 
-ℹ️ Yeni cüzdan eklemek için "➕ Cüzdan Ekle" butonunu kullanın."""
+ℹ️ Yeni cüzdan eklemek için "➕ Cüzdan Ekle" butonunu kullanın.
+ℹ️ Kullanımdaki cüzdanları görmek ve yönetmek için "📋 Cüzdanları Listele" butonunu kullanın.
+ℹ️ Takılı kalan cüzdanları serbest bırakmak için "🔄 Cüzdanları Serbest Bırak" butonunu kullanın."""
     
     await update.callback_query.message.edit_text(
         message,
@@ -52,7 +91,32 @@ Lütfen TRC20 cüzdan adresini girin:
         ]])
     )
     return WALLET_INPUT
-
+async def release_all_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Release all in_use wallets for administrator"""
+    query = update.callback_query
+    await query.answer()
+    
+    try:
+        # Cüzdanları serbest bırak
+        db.cur.execute("UPDATE wallets SET in_use = 0")
+        db.conn.commit()
+        
+        count = db.cur.rowcount
+        
+        await query.message.edit_text(
+            f"✅ Toplam {count} cüzdan başarıyla serbest bırakıldı.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Cüzdan Havuzuna Dön", callback_data='admin_wallets')
+            ]])
+        )
+    except Exception as e:
+        logger.error(f"Error releasing all wallets: {e}")
+        await query.message.edit_text(
+            "❌ Cüzdanlar serbest bırakılırken bir hata oluştu.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Cüzdan Havuzuna Dön", callback_data='admin_wallets')
+            ]])
+        )
 async def handle_wallet_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle the wallet address input"""
     wallet_address = update.message.text.strip()
@@ -95,9 +159,32 @@ async def handle_wallet_input(update: Update, context: ContextTypes.DEFAULT_TYPE
     return ConversationHandler.END
 
 async def list_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show list of all wallets"""
+    """Show list of all wallets with user assignment information"""
     query = update.callback_query
-    wallets = db.get_all_wallets()
+    
+    try:
+        # Cüzdan-kullanıcı ilişkilerini göster
+        db.cur.execute("""
+            SELECT 
+                w.id, 
+                w.address, 
+                w.in_use,
+                uw.user_id,
+                (SELECT COUNT(*) FROM purchase_requests WHERE wallet = w.address) as usage_count,
+                (SELECT 
+                    CASE 
+                        WHEN COUNT(*) > 0 THEN MAX(created_at) 
+                        ELSE NULL 
+                    END 
+                FROM purchase_requests WHERE wallet = w.address) as last_used_date
+            FROM wallets w
+            LEFT JOIN user_wallets uw ON w.id = uw.wallet_id
+            ORDER BY w.in_use DESC, uw.user_id IS NOT NULL DESC, last_used_date DESC
+        """)
+        wallets = db.cur.fetchall()
+    except Exception as e:
+        logger.error(f"Error fetching wallets: {e}")
+        wallets = []
     
     if not wallets:
         await query.message.edit_text(
@@ -111,15 +198,36 @@ async def list_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = "📋 Cüzdan Havuzu\n\n"
     keyboard = []
     
-    for wallet in wallets:
-        wallet_id, address, in_use = wallet[0], wallet[1], wallet[2]
-        status = "🔴 Kullanımda" if in_use else "🟢 Müsait"
+    # Kullanımda, atanmış ve müsait cüzdan sayılarını hesapla
+    in_use_count = sum(1 for wallet in wallets if wallet[2])
+    assigned_count = sum(1 for wallet in wallets if wallet[3] is not None)
+    available_count = len(wallets) - assigned_count
+    
+    message += f"📊 Özet: {len(wallets)} cüzdan ({available_count} müsait, {assigned_count} atanmış)\n\n"
+    
+    for i, wallet in enumerate(wallets, 1):
+        wallet_id, address, in_use, user_id, usage_count, last_used = wallet
         
-        message += f"🏦 {address[:8]}...{address[-8:]}\n"
+        if user_id is not None:
+            status = f"👤 Kullanıcıya Atandı: {user_id}"
+        elif in_use:
+            status = "🔴 Kullanımda (Geçici)"
+        else:
+            status = "🟢 Müsait"
+        
+        message += f"{i}. 🏦 {address[:8]}...{address[-8:]}\n"
         message += f"📊 Durum: {status}\n"
+        
+        if usage_count and usage_count > 0:
+            message += f"🔄 Kullanım: {usage_count} kez\n"
+            
+        if last_used:
+            message += f"⏱️ Son Kullanım: {last_used}\n"
+            
         message += "───────────────\n"
         
-        if not in_use:
+        # Sadece müsait (kullanıcıya atanmamış ve in_use=0) cüzdanlar silinebilir
+        if not in_use and user_id is None:
             keyboard.append([
                 InlineKeyboardButton(
                     f"❌ Sil: {address[:8]}...",
@@ -135,9 +243,12 @@ async def list_wallets(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
     except Exception as e:
-        logger.error(f"Error showing wallets: {e}")
-        # If message is too long, send a simplified version
-        simplified_message = "📋 Cüzdan Havuzu\n\nCüzdanları yönetmek için aşağıdaki butonları kullanın."
+        logger.error(f"Error showing wallets, message too long: {e}")
+        # Mesaj çok uzunsa, kısaltılmış bir versiyonunu göster
+        simplified_message = "📋 Cüzdan Havuzu\n\n"
+        simplified_message += f"📊 Özet: {len(wallets)} cüzdan ({available_count} müsait, {assigned_count} atanmış)\n\n"
+        simplified_message += "Cüzdanları yönetmek için aşağıdaki butonları kullanın."
+        
         await query.message.edit_text(
             simplified_message,
             reply_markup=InlineKeyboardMarkup(keyboard)

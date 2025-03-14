@@ -1,5 +1,7 @@
 from typing import Optional, List, Tuple
 from .core import Database
+import logging
+logger = logging.getLogger(__name__)
 
 class WalletsDB:
     def __init__(self, db: Database):

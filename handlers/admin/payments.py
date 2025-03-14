@@ -93,9 +93,16 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
                 user_message,
                 has_location=False
             )
+            
+            # ÖNEMLİ: Sipariş reddedildiğinde bile cüzdanı serbest bırakmıyoruz
+            # Cüzdan kullanıcıya atanmış olarak kalıyor
+            
         else:
             # Handle approval case
             await handle_approval_notification(context.bot, request)
+            
+            # ÖNEMLİ: Sipariş onaylandığında cüzdanı serbest bırakmıyoruz
+            # Cüzdan kullanıcıya kalıcı olarak atanmış olarak kalıyor
         
         # STEP 2: SEND ADMIN CONFIRMATION
         
@@ -129,7 +136,6 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
-
 def get_user_failed_payments(user_id):
     """Get user's failed payment count safely"""
     try:
@@ -181,10 +187,11 @@ async def send_user_notification(bot, user_id, message, has_location=False, loca
         if new_message:
             db.store_user_last_notification(user_id, new_message.message_id)
             
-        return True
+        return True  # Başarılı gönderim durumunu işaret et
     except Exception as e:
         logger.error(f"Error sending notification to user {user_id}: {e}")
-        return False
+        return False  # Başarısız gönderim durumunu işaret et
+
 async def handle_approval_notification(bot, request):
     """Handle the approval notification with location if available"""
     try:
@@ -214,13 +221,29 @@ async def handle_approval_notification(bot, request):
                       f"💰 Toplam: {request['total_amount']} USDT\n\n"
                       f"📍 Konum bilgileri yukarıdaki fotoğrafta yer almaktadır.")
             
-            await send_user_notification(
+            # Bildirimi gönder
+            success = await send_user_notification(
                 bot, 
                 request['user_id'], 
                 message,
                 has_location=True,
                 location_path=location_path
             )
+            
+            # Başarılı gönderimden sonra dosyayı sil
+            if success:
+                try:
+                    # Dosyayı diskten sil
+                    os.remove(location_path)
+                    logger.info(f"Location file deleted: {location_path}")
+                    
+                    # Eğer klasör boşsa klasörü de sil (opsiyonel)
+                    directory = os.path.dirname(location_path)
+                    if os.path.exists(directory) and not os.listdir(directory):
+                        os.rmdir(directory)
+                        logger.info(f"Empty location directory removed: {directory}")
+                except Exception as e:
+                    logger.error(f"Error deleting location file: {e}")
         else:
             # Send text-only notification if no location available
             logger.warning(f"No location found for product {product_id}")
@@ -249,7 +272,7 @@ async def handle_approval_notification(bot, request):
         except Exception as nested_e:
             logger.error(f"Error sending fallback notification: {nested_e}")
         return False
-
+    
 async def show_pending_purchases(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show pending purchase requests and order management options"""
     try:
