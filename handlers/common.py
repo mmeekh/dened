@@ -8,6 +8,11 @@ from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 from .admin.payments import show_admin_orders_by_status
+from .admin.locations import (
+    complete_location_upload,
+    filter_locations,
+    view_product_locations
+)
 from .user.games import (
     show_games_menu, 
     play_flappy_weed, 
@@ -48,7 +53,6 @@ from .admin.products import (
 )
 
 from .user import (
-    show_products_menu,
     view_products,
     show_cart,
     handle_add_to_cart,
@@ -58,13 +62,14 @@ from .user import (
     show_payment_menu,
     show_payment_howto,
     show_qr_code,
-    handle_purchase_request,
     show_support_menu,
     show_faq
 )
 from .user.cart import (
-    prompt_discount_code,
-    handle_discount_code,
+    show_cart,
+    handle_add_to_cart,
+    handle_cart_quantity,
+    prompt_discount_code, 
     show_user_coupons,
     apply_coupon_from_list
 )
@@ -116,7 +121,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'my_coupons':
             await show_my_coupons(update, context)
             return
-        
         # Siparişleri temizleme işlemleri
         elif query.data == 'confirm_cleanup_orders':
             await show_cleanup_confirmation(update, context)
@@ -124,6 +128,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'cleanup_orders':
             await handle_cleanup_orders(update, context)
             return
+        elif query.data == 'prompt_discount_code':
+            await prompt_discount_code(update, context)
         # Admin handler işlemleri
         elif query.data == 'admin_pending_orders':
             await show_admin_orders_by_status(update, context, 'pending')
@@ -247,6 +253,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'admin_locations':
             await manage_locations(update, context)
             return
+        elif query.data == 'filter_locations':
+            await filter_locations(update, context)
+            return
+
+        elif query.data.startswith('view_product_locations_'):
+            await view_product_locations(update, context)
+            return
+        elif query.data == 'complete_location_upload':
+            await complete_location_upload(update, context)
+            return ConversationHandler.END
         elif query.data == 'add_location':
             await add_location(update, context)
             return
@@ -256,10 +272,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data.startswith('select_product_location_'):
             product_id = int(query.data.split('_')[3])
             context.user_data['selected_product_id'] = product_id
-            await show_generic_menu(
-                update=update,
-                context=context,
-                text="📸 Lütfen konum fotoğrafını gönderin:",
+            context.user_data['locations_added'] = 0
+            product = db.get_product(product_id)
+            product_name = product[1] if product else "Ürün"
+            
+            await query.message.edit_text(
+                text=f"📸 {product_name} için konum fotoğrafı gönderin:\n\n"
+                    f"⚠️ Birden fazla fotoğraf gönderebilirsiniz. Her gönderi sonrası tamamlamak için 'Tamamla' butonuna tıklayabilirsiniz.",
                 reply_markup=InlineKeyboardMarkup([[
                     InlineKeyboardButton("🔙 İptal", callback_data='admin_locations')
                 ]])

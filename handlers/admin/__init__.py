@@ -18,7 +18,16 @@ from .products import (
 from .order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
 from .users import manage_users
 from .wallets import manage_wallets, add_wallet, list_wallets, release_all_wallets
-from .locations import manage_locations, add_location, list_locations, handle_location_photo
+
+from .locations import (
+    manage_locations, 
+    add_location, 
+    list_locations, 
+    handle_location_photo,
+    complete_location_upload,
+    filter_locations,
+    view_product_locations
+)
 from .categories import (
     manage_categories,
     add_category,
@@ -69,7 +78,10 @@ __all__ = ['show_cleanup_confirmation',
     'handle_product_stock',
     'handle_product_image',
     'handle_edit_name',
+    'view_product_locations',
+    'filter_locations',
     'handle_edit_description',
     'handle_edit_price',
+    'complete_location_upload',
     'handle_stock_input'
 ]

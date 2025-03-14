@@ -222,7 +222,6 @@ async def handle_cart_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def prompt_discount_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Redirect to show_user_coupons instead of showing text input prompt"""
-    # We're now redirecting all discount code entry to the coupon selection menu
     await show_user_coupons(update, context)
     return ConversationHandler.END
 

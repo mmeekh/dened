@@ -1,5 +1,4 @@
 from .admin import (
-    # Admin handlers
     manage_products,
     manage_users,
     manage_wallets,
@@ -11,7 +10,6 @@ from .admin import (
 from .admin.wallets import handle_wallet_input
 
 from .user import (
-    # User handlers
     show_products_menu,
     view_products,
     show_orders_menu,
@@ -23,6 +21,15 @@ from .user import (
     handle_purchase_request,
     show_support_menu,
     show_faq
+)
+from .admin.locations import (
+    manage_locations, 
+    add_location, 
+    list_locations, 
+    handle_location_photo,
+    complete_location_upload,
+    filter_locations,
+    view_product_locations
 )
 
 from .user.cart import (
