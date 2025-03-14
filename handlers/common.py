@@ -7,6 +7,7 @@ from database import Database
 from .menu import show_main_menu
 from utils.menu_utils import show_generic_menu
 from .admin.order_cleanup_handler import show_cleanup_confirmation, handle_cleanup_orders
+from .admin.payments import show_admin_orders_by_status
 from .user.games import (
     show_games_menu, 
     play_flappy_weed, 
@@ -123,8 +124,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif query.data == 'cleanup_orders':
             await handle_cleanup_orders(update, context)
             return
-            
         # Admin handler işlemleri
+        elif query.data == 'admin_pending_orders':
+            await show_admin_orders_by_status(update, context, 'pending')
+            return
+        elif query.data == 'admin_completed_orders':
+            await show_admin_orders_by_status(update, context, 'completed')
+            return
+        elif query.data == 'admin_rejected_orders':
+            await show_admin_orders_by_status(update, context, 'rejected')
+            return
         elif query.data == 'admin_products':
             await manage_products(update, context)
             return

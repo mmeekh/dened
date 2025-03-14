@@ -2,6 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from utils.exchange import get_usdt_try_rate
+from utils.menu_utils import cleanup_old_messages
 from database import Database
 from config import ADMIN_ID
 import qrcode
@@ -28,29 +29,19 @@ async def safely_delete_message(bot, chat_id, message_id):
         logger.error(f"Error deleting message: {e}")
         return False
 async def show_payment_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show payment menu with proper message cleanup"""
+    """Show payment menu with improved message cleanup"""
     try:
-        # Check if we're coming from a callback query (button press)
-        if update.callback_query:
-            # Try to delete the message that contains the button that was pressed
-            if update.callback_query.message:
-                await safely_delete_message(
-                    context.bot, 
-                    update.effective_chat.id, 
-                    update.callback_query.message.message_id
-                )
-                
-        # Try to delete last payment message if it exists
-        last_message = context.user_data.get('last_payment_message')
-        if last_message:
-            if hasattr(last_message, 'message_id'):
-                await safely_delete_message(
-                    context.bot,
-                    update.effective_chat.id,
-                    last_message.message_id
-                )
-            # Clear the stored message reference
-            context.user_data.pop('last_payment_message', None)
+        # Clean up old messages
+        await cleanup_old_messages(
+            context.bot, 
+            update.effective_chat.id, 
+            context=context
+        )
+        
+        # Store message IDs with consistent naming to be tracked for future cleanup
+        if update.callback_query and update.callback_query.message:
+            context.user_data['payment_prev_message_id'] = update.callback_query.message.message_id
+    
     except Exception as e:
         logger.error(f"Error in message cleanup: {e}")
     keyboard = [
@@ -93,7 +84,8 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         return
     
     # Calculate total
-    total = sum(item[2] * item[3] for item in cart_items)
+    subtotal = sum(item[2] * item[3] for item in cart_items)
+    total = subtotal
     logger.info(f"Cart total for user {user_id}: {total} USDT")
     
     # Apply discount if available
@@ -105,9 +97,9 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
     if discount_info and discount_info.get('valid'):
         discount_percent = discount_info.get('discount_percent', 0)
         coupon_id = discount_info.get('coupon_id')
-        discount_amount = (total * discount_percent) / 100
-        total = total - discount_amount
-        discount_text = f"\n💯 İndirim: %{discount_percent} (-{discount_amount:.2f} USDT)"
+        discount_amount = (subtotal * discount_percent) / 100
+        total = subtotal - discount_amount
+        discount_text = f"\n🏷️ İndirim: %{discount_percent} (-{discount_amount:.2f} USDT)"
         logger.info(f"Applied discount: {discount_percent}%, new total: {total} USDT")
     
     if total < 20:
@@ -130,15 +122,13 @@ async def handle_purchase_request(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     
+    # First find wallet without transaction
     wallet = None
-    
     active_request = db.get_user_active_request(user_id)
     if active_request and active_request.get('wallet'):
         wallet = active_request.get('wallet')
         logger.info(f"Reusing existing wallet {wallet} for user {user_id}")
     else:
-        # Burada get_available_wallet yerine assign_wallet_to_user kullanıyoruz
-        # Böylece kullanıcıya kalıcı olarak bir cüzdan atanacak
         logger.info(f"Assigning permanent wallet to user {user_id}")
         wallet = db.assign_wallet_to_user(user_id)
         
@@ -156,39 +146,75 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
     
     logger.info(f"Using wallet {wallet} for purchase request")
     
-    # Create purchase request with discount info
-    request_id = db.create_purchase_request(user_id, cart_items, wallet, discount_percent)
-    if not request_id:
-        logger.error(f"Failed to create purchase request for user {user_id}")
+    # Now handle the purchase request manually in a transaction
+    request_id = None
+    try:
+        # Calculate final total amount
+        total_amount = subtotal
+        if discount_percent > 0:
+            discount_amount = (subtotal * discount_percent) / 100
+            total_amount = subtotal - discount_amount
+            
+        # Start a transaction manually
+        db.cur.execute("BEGIN TRANSACTION")
+        
+        # 1. Insert into purchase_requests table
+        db.cur.execute(
+            """INSERT INTO purchase_requests 
+               (user_id, total_amount, wallet, status, discount_percent) 
+               VALUES (?, ?, ?, 'pending', ?)""",
+            (user_id, total_amount, wallet, discount_percent)
+        )
+        request_id = db.cur.lastrowid
+        
+        # 2. Insert items into purchase_request_items table
+        for item in cart_items:
+            db.cur.execute(
+                """INSERT INTO purchase_request_items 
+                   (request_id, product_id, quantity, price) 
+                   VALUES (?, ?, ?, ?)""",
+                (request_id, item[4], item[3], item[2])
+            )
+        
+        # 3. Apply coupon if used
+        if coupon_id:
+            db.cur.execute(
+                "UPDATE discount_coupons SET is_used = 1 WHERE id = ?",
+                (coupon_id,)
+            )
+            # Clear discount from user_data
+            if 'active_discount' in context.user_data:
+                del context.user_data['active_discount']
+        
+        # 4. Clear the cart
+        db.cur.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
+        
+        # Commit the transaction
+        db.conn.commit()
+        logger.info(f"Successfully created purchase request #{request_id}")
+        
+    except Exception as e:
+        # Something went wrong - try to rollback
+        try:
+            db.conn.rollback()
+            logger.error(f"Transaction rolled back: {str(e)}")
+        except Exception as rollback_error:
+            logger.error(f"Error during rollback: {str(rollback_error)}")
+        
+        # Show error message to user
         await update.callback_query.message.edit_text(
-            "❌ Satın alma talebi oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.",
+            "❌ İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
             ]])
         )
         return
     
-    logger.info(f"Created purchase request #{request_id} for user {user_id}")
-    
-    # Mark coupon as used if applicable
-    if coupon_id:
-        db.apply_discount_coupon(coupon_id)
-        # Clear the active discount from user_data
-        if 'active_discount' in context.user_data:
-            del context.user_data['active_discount']
-    
-    # Clear cart
-    db.clear_user_cart(user_id)
-    logger.info(f"Cleared cart for user {user_id}")
-    
-    # Rest of your existing handle_purchase_request function...
-    
     # Notify admin with discount information
     admin_message = f"🛍️ Yeni Satın Alma Talebi #{request_id}\n\n"
     admin_message += f"👤 Kullanıcı ID: {user_id}\n"
     admin_message += "📦 Ürünler:\n"
     
-    subtotal = sum(item[2] * item[3] for item in cart_items)
     for item in cart_items:
         admin_message += f"- {item[1]} (x{item[3]}) - {item[2] * item[3]} USDT\n"
     
@@ -239,11 +265,11 @@ Lütfen daha sonra tekrar deneyin veya destek ekibiyle iletişime geçin.""",
 <code>{wallet}</code>
 
 ⚠️ Önemli Hatırlatmalar:
-• Sadece TRC20 ağını kullanın!
-• Tam tutarı tek seferde gönderin
-• QR kodu Binance uygulamasında okutabilirsiniz
-• Ödeme sonrası 5-10 dk bekleyin
-• Farklı tutar/ağ kullanmayın!
+- Sadece TRC20 ağını kullanın!
+- Tam tutarı tek seferde gönderin
+- QR kodu Binance uygulamasında okutabilirsiniz
+- Ödeme sonrası 5-10 dk bekleyin
+- Farklı tutar/ağ kullanmayın!
 
 👤 Bu cüzdan sizin için ayrılmıştır, tüm ödemelerinizde aynı adresi kullanacaksınız."""
     

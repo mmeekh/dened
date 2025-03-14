@@ -379,7 +379,6 @@ Görüntülemek istediğiniz sipariş türünü seçin:"""
             [InlineKeyboardButton(f"⏳ Bekleyen Siparişler ({pending_count})", callback_data='admin_pending_orders')],
             [InlineKeyboardButton(f"✅ Tamamlanan Siparişler ({completed_count})", callback_data='admin_completed_orders')],
             [InlineKeyboardButton(f"❌ Reddedilen Siparişler ({rejected_count})", callback_data='admin_rejected_orders')],
-            # Temizleme butonu ekleniyor
             [InlineKeyboardButton("🗑️ Siparişleri Temizle", callback_data='confirm_cleanup_orders')],
             [InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')],
             [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
@@ -395,5 +394,101 @@ Görüntülemek istediğiniz sipariş türünü seçin:"""
             "❌ Siparişler görüntülenirken bir hata oluştu.",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+            ]])
+        )
+async def show_admin_orders_by_status(update: Update, context: ContextTypes.DEFAULT_TYPE, status: str):
+    """Show all orders of a specific status for admin"""
+    try:
+        # Get orders with the specified status
+        db.cur.execute("""
+            SELECT 
+                pr.id,
+                pr.user_id,
+                pr.total_amount,
+                pr.created_at,
+                pr.updated_at,
+                GROUP_CONCAT(
+                    p.name || ' (x' || pri.quantity || ' @ ' || pri.price || ' USDT)'
+                ) as items
+            FROM purchase_requests pr
+            JOIN purchase_request_items pri ON pr.id = pri.request_id
+            JOIN products p ON pri.product_id = p.id
+            WHERE pr.status = ?
+            GROUP BY pr.id
+            ORDER BY pr.created_at DESC
+        """, (status,))
+        
+        orders = db.cur.fetchall()
+        
+        status_emoji = {
+            'pending': '⏳',
+            'completed': '✅',
+            'rejected': '❌'
+        }
+        
+        status_text = {
+            'pending': 'Bekleyen',
+            'completed': 'Tamamlanan',
+            'rejected': 'Reddedilen'
+        }
+        
+        if not orders:
+            await update.callback_query.message.edit_text(
+                f"{status_emoji.get(status, '❓')} {status_text.get(status, status)} sipariş bulunmamaktadır.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')
+                ]])
+            )
+            return
+        
+        message = f"{status_emoji.get(status, '❓')} {status_text.get(status, status)} Siparişler:\n\n"
+        keyboard = []
+        
+        for order in orders:
+            order_id = order[0]
+            user_id = order[1]
+            total_amount = order[2]
+            created_at = order[3]
+            items = order[5]
+            
+            message += f"🛍️ Sipariş #{order_id}\n"
+            message += f"👤 Kullanıcı: {user_id}\n"
+            message += f"📦 Ürünler:\n{items}"
+            message += f"💰 Toplam: {total_amount} USDT\n"
+            message += f"📅 Tarih: {created_at}\n\n"
+            
+            if status == 'pending':
+                keyboard.append([
+                    InlineKeyboardButton("✅ Onayla", callback_data=f'approve_purchase_{order_id}'),
+                    InlineKeyboardButton("❌ Reddet", callback_data=f'reject_purchase_{order_id}')
+                ])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Tüm Siparişler", callback_data='view_all_orders')])
+        keyboard.append([InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        try:
+            await update.callback_query.message.edit_text(
+                message,
+                reply_markup=reply_markup
+            )
+        except Exception as e:
+            logger.error(f"Error showing orders: {e}")
+            # If message is too long, send a simplified version
+            simplified_message = f"{status_emoji.get(status, '❓')} {status_text.get(status, status)} Siparişler\n\n"
+            simplified_message += f"Toplam {len(orders)} sipariş bulunmaktadır.\n\n"
+            simplified_message += "Siparişleri görüntülemek için aşağıdaki butonları kullanabilirsiniz."
+            await update.callback_query.message.edit_text(
+                simplified_message,
+                reply_markup=reply_markup
+            )
+            
+    except Exception as e:
+        logger.error(f"Error showing orders by status: {e}")
+        await update.callback_query.message.edit_text(
+            "❌ Siparişler gösterilirken bir hata oluştu.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Sipariş Yönetimine Dön", callback_data='admin_payments')
             ]])
         )

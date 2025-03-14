@@ -77,7 +77,43 @@ async def show_generic_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
             context.user_data['menu_message_id'] = sent_message.message_id
         except Exception as final_e:
             logger.error(f"Son çare mesajını gösterirken bile hata: {final_e}")
-
+async def cleanup_old_messages(bot, chat_id, message_ids=None, context=None):
+    """
+    Clean up old messages to keep the chat tidy
+    
+    Args:
+        bot: The bot instance
+        chat_id: The chat ID where messages should be deleted
+        message_ids: Optional list of specific message IDs to delete
+        context: Optional context with user_data containing tracked messages
+    """
+    deleted_count = 0
+    
+    # Delete specific message IDs if provided
+    if message_ids:
+        for msg_id in message_ids:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                deleted_count += 1
+            except Exception as e:
+                logger.debug(f"Could not delete message {msg_id}: {e}")
+                
+    # Delete tracked messages in context if provided
+    if context and hasattr(context, 'user_data'):
+        tracked_keys = [k for k in context.user_data.keys() if k.endswith('_message_id')]
+        
+        for key in tracked_keys:
+            msg_id = context.user_data.get(key)
+            if msg_id:
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                    # Remove the key after successful deletion
+                    context.user_data.pop(key)
+                    deleted_count += 1
+                except Exception as e:
+                    logger.debug(f"Could not delete tracked message {key}: {e}")
+    
+    return deleted_count
 async def show_media_menu(update: Update, context: ContextTypes.DEFAULT_TYPE,
                       photo_path: str, caption: str, 
                       reply_markup: InlineKeyboardMarkup = None):
