@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flappy Weed</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 320px;
+            height: 480px;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB, #E0F7FF);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+        }
+        
+        #game-canvas {
+            display: block;
+        }
+        
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            z-index: 10;
+            text-align: center;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .game-title {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .instruction {
+            color: #ffff00;
+            font-weight: bold;
+            margin: 10px 20px;
+            line-height: 1.4;
+        }
+        
+        .score-info {
+            margin: 5px 0;
+            font-size: 18px;
+        }
+        
+        #toggle-sound {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: transparent;
+            font-size: 24px;
+            padding: 5px;
+            color: white;
+            cursor: pointer;
+            border: none;
+            z-index: 20;
+        }
+        
+        @media (max-height: 480px) {
+            #game-container {
+                height: 100vh;
+                border-radius: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="320" height="480"></canvas>
+        <div class="score">0</div>
+        <button id="toggle-sound" onclick="soundEnabled = !soundEnabled; this.textContent = soundEnabled ? '🔊' : '🔇'; if(!soundEnabled) { pauseBackgroundMusic(); } else if(gameActive) { playBackgroundMusic(); }">🔊</button>
+        
+        <div class="start-screen">
+            <h1 class="game-title">Flappy Weed</h1>
+            <p>Ekrana tıklayarak zıpla, borulardan kaç!</p>
+            <p class="instruction">ÖNEMLİ: Sürekli tıklayarak karakteri havada tut!<br>Her 1-2 saniyede bir tıkla!</p>
+            <button id="start-button">Oyuna Başla</button>
+        </div>
+        
+        <div class="game-over">
+            <h2>Oyun Bitti!</h2>
+            <p class="score-info">Skorun: <span id="final-score">0</span></p>
+            <p class="score-info">En Yüksek Skorun: <span id="high-score">0</span></p>
+            <button id="restart-button">Tekrar Oyna</button>
+            <button id="submit-score">Skoru Kaydet</button>
+        </div>
+    </div>
+
+    <!-- Game Script -->
+    <script>
+// URL'den oyun oturumu parametresini al
+const urlParams = new URLSearchParams(window.location.search);
+const gameSession = urlParams.get('session') || 'default';
+console.log("Oyun Oturumu:", gameSession);
+
+// Weed character class
+class Weed {
+    constructor(canvas) {
+        this.canvas = canvas;
+        this.x = 50;
+        this.y = canvas.height / 2;
+        this.width = 80;  // Resmin genişliği (artırıldı)
+        this.height = 80; // Resmin yüksekliği (artırıldı)
+        this.velocity = 0;
+        this.gravity = 0.05; // Yer çekimi
+        this.floatOffset = 0;
+        this.floatSpeed = 0.02;
+
+        // Resmi yükle
+        this.image = new Image();
+        this.image.src = "https://i.imgur.com/dldPlXf.png"; // Resmin URL'si
+        this.image.onload = () => {
+            console.log("Resim başarıyla yüklendi!");
+        };
+        this.image.onerror = () => {
+            console.error("Resim yüklenirken hata oluştu!");
+        };
+    }
+
+    update() {
+        this.velocity += this.gravity;
+        if (this.velocity > 2.0) {
+            this.velocity = 2.0;
+        }
+
+        this.floatOffset += this.floatSpeed;
+        let floatEffect = Math.sin(this.floatOffset) * 0.3;
+        this.y += this.velocity + floatEffect;
+
+        // Yerden çarpma kontrolü
+        if (this.y + this.height / 2 > this.canvas.height - 20) {
+            this.y = this.canvas.height - 20 - this.height / 2;
+            this.velocity = 0;
+            return true; // Yere çarptı
+        }
+        return false; // Yere çarpmadı
+    }
+
+    draw(ctx) {
+        ctx.save(); // Mevcut durumu kaydet
+
+        // Hıza göre açı hesapla
+        let angle = 0;
+        if (this.velocity < 0) {
+            angle = -Math.PI / 15; // Yukarı hareket ederken hafifçe yukarı eğim
+        } else if (this.velocity > 1) {
+            angle = Math.PI / 15; // Aşağı düşerken hafifçe aşağı eğim
+        }
+
+        ctx.translate(this.x, this.y);
+        ctx.rotate(angle);
+
+        // Resmi çiz
+        if (this.image.complete && this.image.naturalHeight !== 0) {
+            ctx.drawImage(
+                this.image,
+                -this.width / 2, // Resmi merkezlemek için x koordinatı
+                -this.height / 2, // Resmi merkezlemek için y koordinatı
+                this.width,
+                this.height
+            );
+        } else {
+            // Resim yüklenmediyse, yedek olarak yeşil bir daire çiz
+            ctx.fillStyle = '#44A244';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore(); // Önceki durumu geri yükle
+    }
+
+    jump() {
+        this.velocity = -3.2; // Zıplama hızını artırın
+        playSound('jump');
+    }
+
+    reset() {
+        this.y = this.canvas.height / 3;
+        this.velocity = -1;
+        this.floatOffset = 0;
+    }
+}
+
+class Pipe {
+    constructor(canvas, x) {
+        this.canvas = canvas;
+        this.x = x;
+        this.width = 70;
+        this.gap = 220; // Boruların aralığı (artırıldı)
+        this.passed = false;
+
+        this.topHeight = Math.floor(Math.random() * (canvas.height - this.gap - 140)) + 70;
+        this.bottomY = this.topHeight + this.gap;
+        this.bottomHeight = canvas.height - this.bottomY;
+    }
+
+    update(speed) {
+        this.x -= speed;
+    }
+
+    isOffScreen() {
+        return this.x + this.width < 0;
+    }
+
+    draw(ctx) {
+        // Draw top pipe    
+        ctx.fillStyle = '#689F38';
+        ctx.fillRect(this.x, 0, this.width, this.topHeight);
+    
+        // Altın kenarlık ekleme
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(this.x - 8, this.topHeight - 25, this.width + 16, 25);
+    
+        // Draw bottom pipe
+        ctx.fillStyle = '#689F38';
+        ctx.fillRect(this.x, this.bottomY, this.width, this.bottomHeight);
+    
+        // Altın kenarlık ekleme
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(this.x - 8, this.bottomY, this.width + 16, 25);
+    }
+
+    checkCollision(weed) {
+        const hitboxReduction = 5;
+        const weedLeft = weed.x - weed.width / 2 + hitboxReduction;
+        const weedRight = weed.x + weed.width / 2 - hitboxReduction;
+        const weedTop = weed.y - weed.height / 2 + hitboxReduction;
+        const weedBottom = weed.y + weed.height / 2 - hitboxReduction;
+
+        if (
+            weedRight > this.x &&
+            weedLeft < this.x + this.width &&
+            (weedTop < this.topHeight || weedBottom > this.bottomY)
+        ) {
+            return true; // Çarpışma var
+        }
+        return false; // Çarpışma yok
+    }
+}
+
+const jumpSound = new Audio('https://assets.mixkit.co/active_storage/sfx/3005/3005-preview.mp3');
+const scoreSound = new Audio('https://assets.mixkit.co/active_storage/sfx/270/270-preview.mp3');
+// Bomba sesi - game over için
+const gameOverSound = new Audio('https://assets.mixkit.co/active_storage/sfx/2648/2648-preview.mp3');
+
+// Arkaplan müziği için orijinal seçimimize dönelim (daha basit bir seçenek)
+const backgroundMusic = new Audio('https://assets.mixkit.co/active_storage/sfx/2426/2426-preview.mp3');
+backgroundMusic.loop = true;
+backgroundMusic.volume = 0.4;
+
+let soundEnabled = true;
+let musicPlaying = false;
+
+function playSound(sound) {
+    if (!soundEnabled) return;
+
+    if (sound === 'jump') {
+        jumpSound.currentTime = 0;
+        jumpSound.play().catch(e => console.log('Sound play error:', e));
+    } else if (sound === 'score') {
+        scoreSound.currentTime = 0;
+        scoreSound.volume = 0.2; // Ses seviyesi %60'a düşürüldü (-%40)
+        scoreSound.play().catch(e => console.log('Sound play error:', e));
+    } else if (sound === 'death') {
+        gameOverSound.currentTime = 0;
+        gameOverSound.play().catch(e => console.log('Sound play error:', e));
+        
+        // Oyun bitince müziği durdur
+        pauseBackgroundMusic();
+    } else if (sound === 'background') {
+        if (!musicPlaying) {
+            playBackgroundMusic();
+        }
+    }
+}
+
+function playBackgroundMusic() {
+    if (soundEnabled) {
+        backgroundMusic.currentTime = 0;
+        backgroundMusic.play().then(() => {
+            musicPlaying = true;
+        }).catch(e => console.log('Music play error:', e));
+    }
+}
+
+function pauseBackgroundMusic() {
+    backgroundMusic.pause();
+    musicPlaying = false;
+}
+
+// Game variables
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const scoreDisplay = document.querySelector('.score');
+const startScreen = document.querySelector('.start-screen');
+const gameOverScreen = document.querySelector('.game-over');
+const finalScoreDisplay = document.getElementById('final-score');
+const startButton = document.getElementById('start-button');
+const restartButton = document.getElementById('restart-button');
+const submitScoreButton = document.getElementById('submit-score');
+
+let gameActive = false;
+let score = 0;
+let highScore = localStorage.getItem('highScore') || 0;
+let gravity = 0.1;
+let pipes = [];
+let pipeWidth = 70;
+let pipeGap = 240;
+let pipeSpeed = 1.8;
+let minPipeHeight = 40;
+let nextPipe = 25;
+let pipeInterval = 90;
+
+// Weed character
+const weed = new Weed(canvas);
+
+// Draw background
+function drawBackground() {
+    // Sky gradient
+    const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    skyGradient.addColorStop(0, '#87CEEB');
+    skyGradient.addColorStop(1, '#E0F7FF');
+    ctx.fillStyle = skyGradient;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Ground
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(0, canvas.height - 20, canvas.width, 20);
+
+    // Grass
+    ctx.fillStyle = '#7CFC00';
+    ctx.fillRect(0, canvas.height - 25, canvas.width, 5);
+}
+
+// Create pipe
+function createPipe() {
+    const minGap = 260 - (score * 0.5); // Skor arttıkça boşluk daralsın
+    const gap = Math.max(minGap, 220); // Minimum 220 piksel
+    return new Pipe(canvas, canvas.width, gap);
+}
+
+// Game loop
+function gameLoop() {
+    if (!gameActive) return;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw background
+    drawBackground();
+
+    // Create new pipes
+    nextPipe--;
+    if (nextPipe <= 0) {
+        pipes.push(createPipe());
+        nextPipe = pipeInterval;
+    }
+
+    // Draw and update pipes
+    for (let i = 0; i < pipes.length; i++) {
+        const pipe = pipes[i];
+        pipe.update(pipeSpeed);
+        pipe.draw(ctx);
+
+        // Score when passing pipe
+        if (!pipe.passed && pipe.x + pipe.width < weed.x) {
+            score++;
+            scoreDisplay.textContent = score;
+            pipe.passed = true;
+            playSound('score');
+        }
+
+        // Check collision
+        if (pipe.checkCollision(weed)) {
+            gameOver();
+            return;
+        }
+
+        // Remove offscreen pipes
+        if (pipe.isOffScreen()) {
+            pipes.splice(i, 1);
+            i--;
+        }
+    }
+    if (score % 10 === 0 && score !== 0 && score <= 10) {
+        pipeSpeed += 0.01; // Her 10 puanda bir hız artışı
+        weed.gravity += 0.005; // Yerçekimi kademeli artış
+    }
+    // Update weed character
+    const hitGround = weed.update();
+    if (hitGround) {
+        gameOver();
+        return;
+    }
+
+    // Draw weed
+    weed.draw(ctx);
+
+    // Continue game loop
+    requestAnimationFrame(gameLoop);
+}
+
+// Start game
+function startGame() {
+    gameActive = true;
+    score = 0;
+    pipes = [];
+    nextPipe = 35; // Start with first pipe sooner
+
+    weed.reset();
+    scoreDisplay.textContent = score;
+    startScreen.style.display = 'none';
+    gameOverScreen.style.display = 'none';
+
+    // Oyun başlayınca müziği çal
+    playSound('background');
+    
+    gameLoop();
+}
+
+// Game over
+function gameOver() {
+    gameActive = false;
+    playSound('death');
+
+    // Update high score
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('highScore', highScore);
+    }
+
+    gameOverScreen.style.display = 'flex';
+    finalScoreDisplay.textContent = score;
+
+    // Show high score if element exists
+    const highScoreElement = document.getElementById('high-score');
+    if (highScoreElement) {
+        highScoreElement.textContent = highScore;
+    }
+}
+
+function saveScore() {
+    // Get the session parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameSession = urlParams.get('session') || 'default';
+    
+    console.log("Saving score:", score, "Session:", gameSession);
+    
+    // Create the redirect URL
+    const redirectUrl = `https://t.me/Yesiltobacco_bot?start=save_score_${gameSession}_${score}`;
+    
+    // Hide the submit button to prevent multiple clicks
+    submitScoreButton.style.display = 'none';
+    
+    try {
+        // Try to use location.replace instead of location.href
+        // This might reduce browser warnings in some cases
+        window.location.replace(redirectUrl);
+    } catch (e) {
+        console.error("Redirect error:", e);
+        
+        // Fallback to normal redirect
+        window.location.href = redirectUrl;
+    }
+}
+
+// Event listeners
+canvas.addEventListener('click', function() {
+    if (gameActive) {
+        weed.jump();
+    }
+});
+
+canvas.addEventListener('touchstart', function(e) {
+    e.preventDefault();
+    if (gameActive) {
+        weed.jump();
+    }
+});
+
+// Keyboard controls
+document.addEventListener('keydown', function(e) {
+    if ((e.code === 'Space' || e.code === 'ArrowUp') && gameActive) {
+        weed.jump();
+        e.preventDefault();
+    }
+});
+
+// Button events
+startButton.addEventListener('click', startGame);
+restartButton.addEventListener('click', startGame);
+submitScoreButton.addEventListener('click', saveScore);
+
+// Initial screen
+drawBackground();
+weed.draw(ctx);
+    </script>
+</body>
+</html>
