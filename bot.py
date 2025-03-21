@@ -3,6 +3,8 @@ import logging
 import asyncio
 import platform
 import signal
+from logging.handlers import RotatingFileHandler
+
 from datetime import datetime
 from telegram import Update
 from telegram.ext import (
@@ -65,14 +67,30 @@ from handlers import (
 from database import Database
 from states import *
 
+os.makedirs('logs', exist_ok=True)
+
 logging.basicConfig(
+    level=logging.INFO,  # Use INFO level instead of DEBUG for production
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
     handlers=[
-        logging.StreamHandler()
+        RotatingFileHandler(
+            'logs/bot.log',            # Store in logs folder
+            maxBytes=10 * 1024 * 1024, # 10MB per file
+            backupCount=5,             # Keep 5 backup files max (50MB total)
+        ),
+        logging.StreamHandler()        # Also log to console
     ]
 )
 logger = logging.getLogger(__name__)
+
+logging.getLogger('telegram').setLevel(logging.WARNING)  # Telegram kütüphanesi için 
+logging.getLogger('handlers.user.games').setLevel(logging.INFO)  # Oyun modülü için
+logging.getLogger('handlers.admin.payments').setLevel(logging.INFO)  # Ödemeler modülü için
+logging.getLogger('handlers.admin.wallets').setLevel(logging.INFO)  # Cüzdan modülü için
+logging.getLogger('handlers.user.cart').setLevel(logging.INFO)  # Sepet modülü için
+for handler_name in ['products', 'users', 'orders', 'payments', 'locations']:
+    logging.getLogger(f'handlers.admin.{handler_name}').setLevel(logging.INFO)
+    logging.getLogger(f'handlers.user.{handler_name}').setLevel(logging.INFO)
 
 
 db = Database(DB_NAME)

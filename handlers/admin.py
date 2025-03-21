@@ -12,18 +12,7 @@ from states import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
-# Create a file handler
-handler = logging.FileHandler('bot.log')
-handler.setLevel(logging.DEBUG)
-
-# Create a formatter
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
-
-# Add the handler to the logger
-logger.addHandler(handler)
 db = Database('shop.db')
 
 async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):

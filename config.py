@@ -1,27 +1,37 @@
 import os
-from dotenv import load_dotenv
+import sys
 import logging
+from dotenv import load_dotenv
+
 logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-BOT_PASSWORD = os.getenv('BOT_PASSWORD', 'gizli_sifre123')
-
 if not BOT_TOKEN:
-    logger.warning("BOT_TOKEN not found in environment variables. Using fallback value (NOT RECOMMENDED)")
-    BOT_TOKEN = "7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo"  # This should be removed in production
+    logger.critical("BOT_TOKEN environment variable is required!")
+    sys.exit(1)  # Critical error, exit
 
 try:
-    ADMIN_ID = int(os.getenv('ADMIN_ID', '5328212723'))
-except ValueError:
-    logger.warning("ADMIN_ID could not be converted to integer. Using fallback value")
-    ADMIN_ID = 5328212723
+    ADMIN_ID = int(os.getenv('ADMIN_ID'))
+    if not ADMIN_ID:
+        logger.critical("ADMIN_ID environment variable is required!")
+        sys.exit(1)
+except (TypeError, ValueError):
+    logger.critical("ADMIN_ID must be a valid integer!")
+    sys.exit(1)
+
+BOT_PASSWORD = os.getenv('BOT_PASSWORD')
+if not BOT_PASSWORD:
+    logger.critical("BOT_PASSWORD environment variable is required!")
+    sys.exit(1)
 
 DB_NAME = os.getenv('DB_NAME', 'shop.db')
-
 PRODUCTS_DIR = os.getenv('PRODUCTS_DIR', 'products')
-
 LOCATIONS_DIR = os.getenv('LOCATIONS_DIR', 'locations')
 
-if not all([BOT_TOKEN, ADMIN_ID]):
-    logger.warning("Some essential environment variables are missing. Please check your .env file.")
+logger.info(f"Configuration loaded:")
+logger.info(f"- Admin ID: {ADMIN_ID}")
+logger.info(f"- Database: {DB_NAME}")
+logger.info(f"- Products directory: {PRODUCTS_DIR}")
+logger.info(f"- Locations directory: {LOCATIONS_DIR}")
