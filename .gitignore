@@ -2,3 +2,7 @@
 
 /logs
 *.log
+shop.db
+logs/bot.log
+/logs
+*.log
