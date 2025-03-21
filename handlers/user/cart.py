@@ -2,7 +2,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from database import Database
 from config import ADMIN_ID
-from states import CART_QUANTITY, DISCOUNT_CODE_INPUT
+from states import CART_QUANTITY
 import logging
 import asyncio
 from datetime import datetime
@@ -148,8 +148,10 @@ async def handle_add_to_cart(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     return CART_QUANTITY
 
+# Update the error message in handle_cart_quantity function in handlers/user/cart.py
+
 async def handle_cart_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle quantity input for cart item"""
+    """Handle quantity input for cart item with stock validation"""
     try:
         quantity = int(update.message.text)
         last_message_id = context.user_data.get('last_bot_message_id')
@@ -186,7 +188,49 @@ async def handle_cart_quantity(update: Update, context: ContextTypes.DEFAULT_TYP
             )
             return ConversationHandler.END
         
+        # Check current stock
+        product = db.get_product(product_id)
+        if not product:
+            await update.message.delete()
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=last_message_id,
+                text="❌ Ürün bulunamadı. Lütfen tekrar deneyin.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')
+                ]])
+            )
+            return ConversationHandler.END
+        
+        current_stock = product[5]
+        
+        # Get user's current cart items for this product
+        user_id = update.effective_user.id
+        db.cur.execute(
+            """SELECT SUM(quantity) FROM cart 
+               WHERE user_id = ? AND product_id = ?""",
+            (user_id, product_id)
+        )
+        result = db.cur.fetchone()
+        current_cart_quantity = result[0] if result and result[0] else 0
+        
+        # Calculate if there's enough stock
+        if quantity > current_stock:
+            await update.message.delete()
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=last_message_id,
+                text="❌ Üzgünüz, yetersiz stok. Lütfen adminle iletişime geçin.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🔙 İptal", callback_data='view_products')
+                ]])
+            )
+            return CART_QUANTITY
+        
+        # Add to cart
         db.add_to_cart(update.effective_user.id, product_id, quantity)
+        
+        # Delete user's message
         await update.message.delete()
         
         # Get total items in cart

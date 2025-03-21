@@ -49,7 +49,8 @@ from .admin import (
 from .admin.products import (
     add_product,
     show_edit_menu,
-    handle_delete_product
+    handle_delete_product,
+    edit_stock
 )
 
 from .user import (
@@ -202,6 +203,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['edit_product_id'] = product_id
             await show_edit_menu(update, context, product_id)
             return
+        elif query.data == 'edit_stock':
+            await edit_stock(update, context)
+            return STOCK_CHANGE
         elif query.data.startswith('delete_product_'):
             product_id = int(query.data.split('_')[2])
             await handle_delete_product(update, context, product_id)

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 db = Database('shop.db')
 
 async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle purchase request approval/rejection with improved structure"""
+    """Handle purchase request approval/rejection with improved structure and stock management"""
     query = update.callback_query
     await query.answer()  # Acknowledge the button click
     
@@ -40,6 +40,36 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
+    # If approving, check stock levels before proceeding
+    if status == 'completed':
+        # Get the items in this purchase request
+        db.cur.execute("""
+            SELECT pri.product_id, pri.quantity, p.stock
+            FROM purchase_request_items pri
+            JOIN products p ON pri.product_id = p.id
+            WHERE pri.request_id = ?
+        """, (request_id,))
+        
+        items = db.cur.fetchall()
+        insufficient_stock = False
+        
+        # Check if there's enough stock for all items
+        for product_id, quantity, current_stock in items:
+            if quantity > current_stock:
+                insufficient_stock = True
+                logger.warning(f"Not enough stock for product {product_id}. Needed: {quantity}, Available: {current_stock}")
+                break
+        
+        if insufficient_stock:
+            await query.message.edit_text(
+                "❌ Yeterli stok bulunmamaktadır. Sipariş onaylanamaz.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("❌ Reddet", callback_data=f'reject_purchase_{request_id}')],
+                    [InlineKeyboardButton("🔙 Ana Menü", callback_data='main_menu')]
+                ])
+            )
+            return
+    
     # Update request status in database
     if not db.update_purchase_request_status(request_id, status):
         logger.error(f"Failed to update request #{request_id} status to {status}")
@@ -53,6 +83,24 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
         )
         return
 
+    # If approved, reduce stock levels
+    if status == 'completed':
+        try:
+            for product_id, quantity, current_stock in items:
+                # Update stock (subtract quantity)
+                db.cur.execute(
+                    "UPDATE products SET stock = stock - ? WHERE id = ?",
+                    (quantity, product_id)
+                )
+                logger.info(f"Reduced stock for product {product_id} by {quantity}")
+            
+            db.conn.commit()
+            logger.info(f"Successfully updated stock levels for order #{request_id}")
+        except Exception as e:
+            logger.error(f"Error updating stock levels: {e}")
+            # Continue with the process even if stock update fails
+            # We've already confirmed the purchase, so we should complete it
+
     # Status updated successfully, proceed with notifications
     try:
         # Try to delete the original message to keep chat clean
@@ -61,6 +109,9 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
         except Exception as e:
             logger.error(f"Error deleting message: {e}")
         
+        # Rest of the existing notification logic remains unchanged
+        # ...
+
         # STEP 1: PREPARE USER NOTIFICATION
         
         if status == 'rejected':
@@ -93,7 +144,6 @@ async def handle_purchase_approval(update: Update, context: ContextTypes.DEFAULT
                 user_message,
                 has_location=False
             )
-            # Don't try to access message_id on the boolean result
         else:
             # Handle approval case
             await handle_approval_notification(context.bot, request)

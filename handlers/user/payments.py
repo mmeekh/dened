@@ -453,30 +453,10 @@ Binance'den başka bir cüzdana TRC20 ağıyla USDT göndermek için:
         reply_markup=reply_markup
     )
 async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show QR code for payment with wallet address for copy"""
+    """Show QR code for payment with wallet address even without active request"""
     user_id = update.effective_user.id
     
-    active_request = db.get_user_active_request(user_id)
-    
-    if not active_request:
-        await update.callback_query.message.edit_text(
-            "❌ Aktif ödeme talebiniz bulunmamaktadır.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')
-            ]])
-        )
-        return
-    
-    wallet = db.get_request_wallet(active_request['id'])
-    if not wallet:
-        await update.callback_query.message.edit_text(
-            "❌ Henüz cüzdan ataması yapılmamış.",
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')
-            ]])
-        )
-        return
-    
+    # Clean up previous messages
     try:
         if update.callback_query and update.callback_query.message:
             await safely_delete_message(
@@ -493,12 +473,30 @@ async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 last_message.message_id
             )
             context.user_data.pop('last_payment_message', None)
+    except Exception as e:
+        logger.error(f"Error in message cleanup: {e}")
+    
+    # First try to get the user's wallet from user_wallets table
+    wallet = db.get_user_wallet(user_id)
+    
+    # If no wallet is assigned yet, assign one now
+    if not wallet:
+        wallet = db.assign_wallet_to_user(user_id)
+        logger.info(f"Assigned new permanent wallet {wallet} to user {user_id}")
         
-        usdt_try_rate = get_usdt_try_rate()
-        exchange_rate_text = f" (≈ {20 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
-        max_exchange_text = f" (≈ {1000 * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
-
-        
+    # If we still don't have a wallet, handle the error
+    if not wallet:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="❌ Cüzdan atanırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Ödeme Menüsüne Dön", callback_data='payment_menu')
+            ]])
+        )
+        return
+    
+    try:        
+        # Generate QR code
         qr = qrcode.QRCode(version=1, box_size=10, border=5)
         qr.add_data(wallet)
         qr.make(fit=True)
@@ -508,21 +506,18 @@ async def show_qr_code(update: Update, context: ContextTypes.DEFAULT_TYPE):
         img.save(bio, 'PNG')
         bio.seek(0)
         
-        total_try = f" (≈ {active_request['total_amount'] * usdt_try_rate:.2f} ₺ + transfer ücreti)" if usdt_try_rate else ""
-        message = f"""📱 QR Kod ile Ödeme
-
-💰 Ödenecek Tutar: {active_request['total_amount']} USDT{total_try}
-📝 Sipariş No: #{active_request['id']}
-
-🔸 TRC20 Cüzdan Adresi:
+        # Simplified message as requested
+        message = f"""🏦 TRC20 Cüzdan Adresi:
 <code>{wallet}</code>
 
 ⚠️ Önemli Hatırlatmalar:
-• QR kodu Binance uygulamasında okutun
-• Sadece TRC20 ağını kullanın!
-• Tam tutarı tek seferde gönderin
-• Minimum işlem tutarı: 20 USDT{exchange_rate_text}
-• Ödeme sonrası 5-10 dk bekleyin"""
+- Sadece TRC20 ağını kullanın!
+- Tam tutarı tek seferde gönderin
+- QR kodu Binance uygulamasında okutabilirsiniz
+- Ödeme sonrası 5-10 dk bekleyin
+- Farklı tutar/ağ kullanmayın!
+
+👤 Bu cüzdan sizin için ayrılmıştır, tüm ödemelerinizde aynı adresi kullanacaksınız."""
         
         context.user_data['last_payment_message'] = await context.bot.send_photo(
             chat_id=update.effective_chat.id,

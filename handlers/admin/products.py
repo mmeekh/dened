@@ -248,6 +248,7 @@ async def show_edit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, pro
     message = f"""📦 {product[1]}
 💰 {product[3]} USDT
 📝 {product[2]}
+📊 Stok: {product[5]}
 
 Düzenlemek istediğiniz alanı seçin:"""
 
@@ -255,6 +256,7 @@ Düzenlemek istediğiniz alanı seçin:"""
         [InlineKeyboardButton("✏️ Ürün Adı", callback_data='edit_name')],
         [InlineKeyboardButton("📝 Açıklama", callback_data='edit_description')],
         [InlineKeyboardButton("💰 Fiyat", callback_data='edit_price')],
+        [InlineKeyboardButton("📊 Stok Ekle/Çıkar", callback_data='edit_stock')],
         [InlineKeyboardButton("🔙 Ürün Yönetimine Dön", callback_data='admin_products')]
     ]
 
@@ -262,7 +264,50 @@ Düzenlemek istediğiniz alanı seçin:"""
         message,
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
+async def edit_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Start stock editing process"""
+    product_id = context.user_data.get('edit_product_id')
+    if not product_id:
+        await update.callback_query.message.edit_text(
+            "❌ Bir hata oluştu. Lütfen tekrar deneyin.",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Ürün Yönetimine Dön", callback_data='admin_products')
+            ]])
+        )
+        return
+    
+    product = db.get_product(product_id)
+    if not product:
+        await update.callback_query.message.edit_text(
+            "❌ Ürün bulunamadı!",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton("🔙 Ürün Yönetimine Dön", callback_data='admin_products')
+            ]])
+        )
+        return
+    
+    message = f"""📊 Stok Güncelleme: {product[1]}
 
+Mevcut stok: {product[5]}
+
+Stok eklemek için pozitif, çıkarmak için negatif bir değer girin.
+Örnek: 
+  • "10" eklemek için
+  • "-5" çıkarmak için"""
+    
+    context.user_data['stock_change'] = {
+        'product_id': product_id,
+        'action': 'update'
+    }
+    
+    await update.callback_query.message.edit_text(
+        message,
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🔙 İptal", callback_data=f'edit_product_{product_id}')
+        ]])
+    )
+    
+    return STOCK_CHANGE
 async def handle_delete_product(update: Update, context: ContextTypes.DEFAULT_TYPE, product_id: int):
     """Handle product deletion"""
     product = db.get_product(product_id)
@@ -412,11 +457,7 @@ async def handle_stock_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         product_id = stock_change['product_id']
         action = stock_change['action']
         
-        # Update stock
-        if action == 'add':
-            success = db.update_product_stock(product_id, quantity)
-        else:  # remove
-            success = db.update_product_stock(product_id, -quantity)
+        success = db.update_product_stock(product_id, quantity)
         
         if success:
             product = db.get_product(product_id)

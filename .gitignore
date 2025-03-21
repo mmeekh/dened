@@ -6,3 +6,4 @@ shop.db
 logs/bot.log
 /logs
 *.log
+*.pyc
