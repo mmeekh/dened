@@ -39,3 +39,73 @@ task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() runni
 2025-03-21 10:00:07,563 - __main__ - INFO - Bot kullanıcı tarafından durduruldu
 2025-03-21 10:00:07,563 - database.core - INFO - Database connection closed
 2025-03-21 10:00:07,563 - __main__ - INFO - Database connection closed
+2025-03-21 10:04:54,176 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:04:54,176 - database.core - INFO - Database tables created successfully
+2025-03-21 10:04:54,176 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:04:54,176 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:04:54,176 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:04:54,472 - __main__ - INFO - Bot application initialized
+2025-03-21 10:04:54,472 - __main__ - INFO - Handlers added to application
+2025-03-21 10:04:54,472 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:04:54,472 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:04:54,500 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:04:54,501 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:04:54,719 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 10:04:54,775 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 10:04:54,995 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:04:55,063 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 400 Bad Request"
+2025-03-21 10:04:55,063 - telegram.ext.Application - ERROR - No error handlers are registered, logging exception.
+Traceback (most recent call last):
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\ext\_application.py", line 1264, in process_update
+    await coroutine
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\ext\_handlers\conversationhandler.py", line 857, in handle_update
+    new_state: object = await handler.handle_update(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\ext\_handlers\basehandler.py", line 157, in handle_update
+    return await self.callback(update, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\OneDrive\Desktop\dened\handlers\common.py", line 85, in button_handler
+    await query.answer()  # Butona tıklandığını onayla
+    ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\_callbackquery.py", line 187, in answer
+    return await self.get_bot().answer_callback_query(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\ext\_extbot.py", line 900, in answer_callback_query
+    return await super().answer_callback_query(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\_bot.py", line 542, in decorator
+    result = await func(self, *args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\_bot.py", line 3767, in answer_callback_query
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\_bot.py", line 630, in _post
+    return await self._do_post(
+           ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\ext\_extbot.py", line 347, in _do_post
+    return await super()._do_post(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\_bot.py", line 658, in _do_post
+    return await request.post(
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\request\_baserequest.py", line 200, in post
+    result = await self._request_wrapper(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\muham\AppData\Local\Programs\Python\Python311\Lib\site-packages\telegram\request\_baserequest.py", line 379, in _request_wrapper
+    raise BadRequest(message)
+telegram.error.BadRequest: Query is too old and response timeout expired or query id is invalid
+2025-03-21 10:05:05,064 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:05:07,159 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:05:07,355 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:05:07,372 - handlers.user.games - INFO - Kullanıcı 1094377450 oyunu başlatıyor, oturum: 1094377450_6981ff2a-fdea-4b12-97d3-18b1e2c983b4
+2025-03-21 10:05:07,479 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-21 10:05:14,823 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:05:14,823 - database.core - INFO - Database connection closed
+2025-03-21 10:05:14,823 - __main__ - INFO - Database connection closed
+2025-03-21 10:05:14,844 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Wallet-Monitoring' coro=<start_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:121> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:05:14,849 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Location-Monitoring' coro=<start_locations_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:152> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:05:14,849 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:404> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:05:14,850 - handlers.user.games - INFO - Monthly reset scheduler task completed
