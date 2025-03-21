@@ -226,15 +226,19 @@ class Database:
             return False
     def setup_database(self):
         """Create database tables"""
-        self.cur.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in self.cur.fetchall()]
-
-        if "authorized" not in columns:
-            self.cur.execute('''
-            ALTER TABLE users
-            ADD COLUMN authorized INTEGER DEFAULT 0
-            ''')
         try:
+            # Users Table - İlk olarak bunu oluştur
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                telegram_id INTEGER UNIQUE NOT NULL,
+                failed_payments INTEGER DEFAULT 0,
+                is_banned BOOLEAN DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                authorized INTEGER DEFAULT 0
+            )
+            ''')
+            
             # Location Pool Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS locations (
@@ -244,17 +248,6 @@ class Database:
                 is_used BOOLEAN DEFAULT 0,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (product_id) REFERENCES products (id)
-            )
-            ''')
-
-            # Users Table
-            self.cur.execute('''
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                telegram_id INTEGER UNIQUE NOT NULL,
-                failed_payments INTEGER DEFAULT 0,
-                is_banned BOOLEAN DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             ''')
 
@@ -315,9 +308,12 @@ class Database:
                 status TEXT DEFAULT 'pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                discount_percent INTEGER DEFAULT 0,
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
+
+            # Claimed Discounts Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS claimed_discounts (
                 id INTEGER PRIMARY KEY,
@@ -328,6 +324,7 @@ class Database:
                 UNIQUE(user_id, discount_percent, claimed_month)
             )
             ''')
+
             # Purchase Request Items Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS purchase_request_items (
@@ -354,6 +351,8 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
+
+            # User Wallets Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS user_wallets (
                 id INTEGER PRIMARY KEY,
@@ -365,6 +364,8 @@ class Database:
                 UNIQUE(user_id, wallet_id)
             )
             ''')
+
+            # Game Sessions Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS game_sessions (
                 id INTEGER PRIMARY KEY,
@@ -376,6 +377,7 @@ class Database:
             )
             ''')
             
+            # Game Scores Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS game_scores (
                 id INTEGER PRIMARY KEY,
@@ -388,6 +390,7 @@ class Database:
             )
             ''')
             
+            # Discount Coupons Table
             self.cur.execute('''
             CREATE TABLE IF NOT EXISTS discount_coupons (
                 id INTEGER PRIMARY KEY,
@@ -401,19 +404,31 @@ class Database:
                 FOREIGN KEY (user_id) REFERENCES users (telegram_id)
             )
             ''')
-            self.cur.execute("PRAGMA table_info(purchase_requests)")
-            columns = [column[1] for column in self.cur.fetchall()]
 
-            if "discount_percent" not in columns:
-                self.cur.execute('''
-                ALTER TABLE purchase_requests 
-                ADD COLUMN discount_percent INTEGER DEFAULT 0
-                ''')
+            # User Notifications Table
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                user_id INTEGER PRIMARY KEY,
+                last_message_id INTEGER,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            ''')
 
+            # Game Chances Table (oyun şansları için)
+            self.cur.execute('''
+            CREATE TABLE IF NOT EXISTS game_chances (
+                user_id INTEGER PRIMARY KEY,
+                daily_chances INTEGER DEFAULT 5,
+                last_reset TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (telegram_id)
+            )
+            ''')
+
+            # Değişiklikleri kaydet
             self.conn.commit()
             logger.info("Database tables created successfully")
         except Exception as e:
-            logger.error(f"Error setting up database tables: {e}")
+            logger.error(f"Error setting up database: {e}")
             raise
     def execute(self, query: str, params: tuple = ()) -> Optional[List[Tuple[Any, ...]]]:
         """Execute SQL query and return results"""
