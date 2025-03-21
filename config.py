@@ -6,12 +6,16 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 
 load_dotenv()
+loaded = load_dotenv()
+if not loaded:
+    print("HATA: .env dosyası bulunamadı!")
+    print("Lütfen .env.example dosyasını .env olarak kopyalayıp değerleri ayarlayın")
+    sys.exit(1)
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 if not BOT_TOKEN:
-    logger.critical("BOT_TOKEN environment variable is required!")
-    sys.exit(1)  # Critical error, exit
-
+    print("HATA: BOT_TOKEN environment variable gerekli!")
+    sys.exit(1)
 try:
     ADMIN_ID = int(os.getenv('ADMIN_ID'))
     if not ADMIN_ID:

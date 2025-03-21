@@ -109,3 +109,138 @@ task: <Task pending name='Location-Monitoring' coro=<start_locations_monitoring(
 2025-03-21 10:05:14,849 - asyncio - ERROR - Task was destroyed but it is pending!
 task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:404> wait_for=<Future pending cb=[Task.task_wakeup()]>>
 2025-03-21 10:05:14,850 - handlers.user.games - INFO - Monthly reset scheduler task completed
+2025-03-21 10:06:45,648 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:06:45,648 - database.core - INFO - Database tables created successfully
+2025-03-21 10:06:45,648 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:06:45,648 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:06:45,648 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:06:45,922 - __main__ - INFO - Bot application initialized
+2025-03-21 10:06:45,922 - __main__ - INFO - Handlers added to application
+2025-03-21 10:06:45,922 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:06:45,922 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:06:45,941 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:06:45,942 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:06:46,167 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 10:06:46,257 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 10:06:48,744 - __main__ - INFO - Bot kullanıcı tarafından durduruldu
+2025-03-21 10:06:48,744 - database.core - INFO - Database connection closed
+2025-03-21 10:06:48,744 - __main__ - INFO - Database connection closed
+2025-03-21 10:07:20,450 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:07:20,451 - database.core - INFO - Database tables created successfully
+2025-03-21 10:07:20,451 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:07:20,451 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:07:20,451 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:07:20,725 - __main__ - INFO - Bot application initialized
+2025-03-21 10:07:20,725 - __main__ - INFO - Handlers added to application
+2025-03-21 10:07:20,733 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:07:20,733 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:07:20,745 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:07:20,745 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:07:21,243 - database.core - INFO - Database connection closed
+2025-03-21 10:07:21,243 - __main__ - INFO - Database connection closed
+2025-03-21 10:11:15,442 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:11:15,442 - database.core - INFO - Database tables created successfully
+2025-03-21 10:11:15,442 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:11:15,442 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:11:15,442 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:11:15,728 - __main__ - INFO - Bot application initialized
+2025-03-21 10:11:15,728 - __main__ - INFO - Handlers added to application
+2025-03-21 10:11:15,728 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:11:15,732 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:11:15,756 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:11:15,757 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:11:15,959 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 10:11:16,013 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 10:11:26,226 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:11:36,289 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:11:46,365 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:11:56,433 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:06,496 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:16,572 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:26,647 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:36,707 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:46,780 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:12:56,849 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:13:06,928 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:13:16,991 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:13:21,034 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:13:21,034 - database.core - INFO - Database connection closed
+2025-03-21 10:13:21,034 - __main__ - INFO - Database connection closed
+2025-03-21 10:13:21,046 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Wallet-Monitoring' coro=<start_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:121> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:13:21,046 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Location-Monitoring' coro=<start_locations_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:152> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:13:21,046 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:404> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:13:21,046 - handlers.user.games - INFO - Monthly reset scheduler task completed
+2025-03-21 10:14:31,843 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:14:31,845 - database.core - INFO - Database tables created successfully
+2025-03-21 10:14:31,845 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:14:31,845 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:14:31,845 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:14:32,124 - __main__ - INFO - Bot application initialized
+2025-03-21 10:14:32,124 - __main__ - INFO - Handlers added to application
+2025-03-21 10:14:32,124 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:14:32,134 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:14:32,145 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:14:32,145 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:14:33,459 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 10:14:33,553 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 10:14:43,770 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:14:53,843 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:14:55,585 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:14:55,891 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:14:55,979 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:14:56,086 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:14:56,233 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:14:57,700 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:14:57,826 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:14:57,954 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-21 10:15:04,974 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:05,285 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:05,624 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:05,686 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 400 Bad Request"
+2025-03-21 10:15:05,766 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:05,878 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:09,743 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:09,861 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:10,025 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-21 10:15:11,670 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:11,767 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:11,883 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:11,948 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 400 Bad Request"
+2025-03-21 10:15:12,084 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:12,289 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:13,307 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:13,418 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:13,487 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:13,602 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:14,755 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:14,862 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:15,004 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-21 10:15:17,225 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:17,303 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:17,363 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:17,437 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:17,532 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:18,246 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:18,390 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:18,524 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/editMessageText "HTTP/1.1 200 OK"
+2025-03-21 10:15:19,745 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:19,840 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:19,909 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:19,973 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteMessage "HTTP/1.1 400 Bad Request"
+2025-03-21 10:15:20,045 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/answerCallbackQuery "HTTP/1.1 200 OK"
+2025-03-21 10:15:20,147 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/sendMessage "HTTP/1.1 200 OK"
+2025-03-21 10:15:29,825 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:39,899 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:48,516 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 10:15:48,516 - database.core - INFO - Database connection closed
+2025-03-21 10:15:48,516 - __main__ - INFO - Database connection closed
+2025-03-21 10:15:48,532 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Wallet-Monitoring' coro=<start_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:121> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:15:48,532 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Location-Monitoring' coro=<start_locations_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:152> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:15:48,533 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:404> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 10:15:48,533 - handlers.user.games - INFO - Monthly reset scheduler task completed

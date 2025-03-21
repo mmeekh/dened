@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-Oyun skorlarını manuel olarak sıfırlamak için kullanılan komut satırı aracı.
-Kullanım:
-    python reset_scores.py [--user_id USER_ID] [--confirm]
-
-Seçenekler:
-    --user_id USER_ID    Belirli bir kullanıcının skorlarını sıfırla
-    --confirm            Onay istemeden doğrudan sıfırla
-"""
-
 import sqlite3
 import argparse
 import sys
