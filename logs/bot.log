@@ -1,0 +1,41 @@
+2025-03-21 09:59:30,079 - database.core - INFO - Connected to database: shop.db
+2025-03-21 09:59:30,079 - database.core - INFO - Database tables created successfully
+2025-03-21 09:59:30,079 - __main__ - INFO - Starting bot initialization...
+2025-03-21 09:59:30,079 - __main__ - INFO - Products directory ensured at products
+2025-03-21 09:59:30,079 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 09:59:30,352 - __main__ - INFO - Bot application initialized
+2025-03-21 09:59:30,352 - __main__ - INFO - Handlers added to application
+2025-03-21 09:59:30,352 - __main__ - INFO - Monitoring tasks started
+2025-03-21 09:59:30,352 - __main__ - INFO - Starting bot polling...
+2025-03-21 09:59:30,381 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 09:59:30,393 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 14 saat sonra)
+2025-03-21 09:59:33,822 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 09:59:33,896 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 09:59:44,085 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 09:59:54,150 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 09:59:59,479 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getUpdates "HTTP/1.1 200 OK"
+2025-03-21 09:59:59,479 - database.core - INFO - Database connection closed
+2025-03-21 09:59:59,479 - __main__ - INFO - Database connection closed
+2025-03-21 09:59:59,500 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Wallet-Monitoring' coro=<start_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:121> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 09:59:59,501 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Location-Monitoring' coro=<start_locations_monitoring() running at C:\Users\muham\OneDrive\Desktop\dened\bot.py:152> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 09:59:59,501 - asyncio - ERROR - Task was destroyed but it is pending!
+task: <Task pending name='Game-Score-Reset' coro=<schedule_monthly_reset() running at C:\Users\muham\OneDrive\Desktop\dened\handlers\user\games.py:404> wait_for=<Future pending cb=[Task.task_wakeup()]>>
+2025-03-21 09:59:59,501 - handlers.user.games - INFO - Monthly reset scheduler task completed
+2025-03-21 10:00:02,126 - database.core - INFO - Connected to database: shop.db
+2025-03-21 10:00:02,126 - database.core - INFO - Database tables created successfully
+2025-03-21 10:00:02,126 - __main__ - INFO - Starting bot initialization...
+2025-03-21 10:00:02,126 - __main__ - INFO - Products directory ensured at products
+2025-03-21 10:00:02,126 - __main__ - INFO - Locations directory ensured at locations
+2025-03-21 10:00:02,410 - __main__ - INFO - Bot application initialized
+2025-03-21 10:00:02,410 - __main__ - INFO - Handlers added to application
+2025-03-21 10:00:02,410 - __main__ - INFO - Monitoring tasks started
+2025-03-21 10:00:02,420 - __main__ - INFO - Starting bot polling...
+2025-03-21 10:00:02,430 - __main__ - INFO - Aylık oyun skoru sıfırlama görevi başlatıldı
+2025-03-21 10:00:02,431 - handlers.user.games - INFO - Bir sonraki sıfırlama: 2025-03-31 23:59:59 (10 gün, 13 saat sonra)
+2025-03-21 10:00:02,641 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/getMe "HTTP/1.1 200 OK"
+2025-03-21 10:00:02,713 - httpx - INFO - HTTP Request: POST https://api.telegram.org/bot7305637182:AAGNumHg8low_WUD3ojAl7dvHqTdmj8Hubo/deleteWebhook "HTTP/1.1 200 OK"
+2025-03-21 10:00:07,563 - __main__ - INFO - Bot kullanıcı tarafından durduruldu
+2025-03-21 10:00:07,563 - database.core - INFO - Database connection closed
+2025-03-21 10:00:07,563 - __main__ - INFO - Database connection closed
